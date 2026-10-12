@@ -341,8 +341,7 @@ const Courses = () => {
                     >
                       <div style={{
                         width: '100%',
-                        aspectRatio: '4 / 5',
-                        minHeight: '220px',
+                        aspectRatio: '16 / 9',
                         maxHeight: '520px',
                         overflow: 'hidden',
                         borderRadius: '12px',

@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const Organisation = require('../../models/Organisation');
 const { success, error } = require('../../utils/apiResponse');
-const cloudinary = require('../../config/cloudinary');
+const { uploadImage } = require('../../services/cloudinaryImageService');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
 
 // @desc    Get org profile
@@ -82,20 +82,7 @@ const updateLogo = async (req, res) => {
 
     if (!req.file) return error(res, 400, 'No logo uploaded');
 
-    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-      return error(res, 500, 'Cloudinary is not configured on the server');
-    }
-
-    const uploadResult = await cloudinary.uploader.upload(
-      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
-      {
-        resource_type: 'image',
-        folder: 'fursahub/logos',
-        transformation: [{ width: 400, height: 400, crop: 'fill' }]
-      }
-    );
-
-    org.logo = uploadResult.secure_url;
+    org.logo = await uploadImage(req.file, [{ width: 400, height: 400, crop: 'fill' }]);
     await org.save();
 
     return success(res, 200, 'Logo updated', { logo: org.logo });
@@ -105,7 +92,7 @@ const updateLogo = async (req, res) => {
       http_code: err.http_code,
       status: err.status
     });
-    return error(res, 500, err.message || 'Failed to upload logo');
+    return error(res, err.statusCode || 500, err.message || 'Failed to upload logo');
   }
 };
 

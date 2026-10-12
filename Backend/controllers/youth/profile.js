@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../../models/Users');
 const { success, error } = require('../../utils/apiResponse');
-const cloudinary = require('../../config/cloudinary');
+const { uploadImage } = require('../../services/cloudinaryImageService');
 const { sendEmail, hasEmailConfig } = require('../../services/emailService');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
 const NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
@@ -182,20 +182,7 @@ const updatePhoto = async (req, res) => {
 
     if (!req.file) return error(res, 400, 'No photo uploaded');
 
-    console.log('📸 Uploading youth profile photo to Cloudinary');
-    
-    const uploadResult = await cloudinary.uploader.upload(
-      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`,
-      {
-        resource_type: 'image',
-        folder: 'fursahub/profiles',
-        transformation: [{ width: 400, height: 400, crop: 'fill' }]
-      }
-    );
-
-    console.log('✅ Upload successful:', uploadResult.secure_url);
-
-    user.photo = uploadResult.secure_url;
+    user.photo = await uploadImage(req.file, [{ width: 400, height: 400, crop: 'fill' }]);
     await user.save();
 
     return success(res, 200, 'Photo updated', { photo: user.photo });
@@ -205,7 +192,7 @@ const updatePhoto = async (req, res) => {
       http_code: err.http_code,
       status: err.status
     });
-    return error(res, 500, err.message);
+    return error(res, err.statusCode || 500, err.message);
   }
 };
 

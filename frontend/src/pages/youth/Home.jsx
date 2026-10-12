@@ -157,6 +157,9 @@ const Home = () => {
               const isFull = course.filledSlots >= course.totalSlots;
               const alreadyApplied = appliedCourseIds.has(course._id);
               const canApply = !alreadyApplied && !isDeadlinePassed && !isFull;
+              const courseCoverImage = typeof course.coverImage === 'string'
+                ? course.coverImage.replace(/^http:\/\//, 'https://')
+                : '';
 
               return (
                 <article
@@ -217,22 +220,34 @@ const Home = () => {
                     {course.description}
                   </p>
 
-                  {course.coverImage && (
-                    <img
-                      src={course.coverImage}
-                      alt={course.title}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                      style={{
+                  {courseCoverImage && (
+                    <Link
+                      to={`/courses/${course._id}`}
+                      style={{ display: 'block', textDecoration: 'none', marginBottom: '12px' }}
+                    >
+                      <div style={{
                         width: '100%',
-                        maxHeight: '320px',
-                        objectFit: 'cover',
-                        borderRadius: '10px',
+                        aspectRatio: '16 / 9',
+                        maxHeight: '520px',
+                        overflow: 'hidden',
+                        borderRadius: '12px',
                         border: '1px solid var(--border-color)',
-                        marginBottom: '12px'
-                      }}
-                    />
+                        background: 'var(--bg-section-alt)'
+                      }}>
+                        <img
+                          src={courseCoverImage}
+                          alt={course.title}
+                          loading="lazy"
+                          decoding="async"
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            display: 'block'
+                          }}
+                        />
+                      </div>
+                    </Link>
                   )}
 
                   <div

@@ -1,6 +1,6 @@
 const Course = require('../../models/course');
 const User = require('../../models/Users');
-const cloudinary = require('../../config/cloudinary');
+const { uploadImage } = require('../../services/cloudinaryImageService');
 const { notify } = require('../../services/notificationService');
 const { success, error } = require('../../utils/apiResponse');
 const posthog = require('../../config/posthog');
@@ -16,36 +16,6 @@ const parseQuestionsPayload = (questions) => {
   } catch (err) {
     return null;
   }
-};
-
-const uploadCourseCover = async (file) => {
-  if (!file) return null;
-
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    throw new Error('Cloudinary is not configured on the server. Missing CLOUDINARY_* environment variables.');
-  }
-
-  try {
-    const uploadResult = await cloudinary.uploader.upload(
-      `data:${file.mimetype};base64,${file.buffer.toString('base64')}`,
-      {
-        upload_preset: 'fursahub-courses',
-        type: 'upload',
-        resource_type: 'image',
-        folder: 'fursahub/course-covers',
-        transformation: [{ width: 1200, height: 675, crop: 'fill' }]
-      }
-    );
-
-    return uploadResult.secure_url;
-  } catch (err) {
-    throw new Error(`Cover image upload failed: ${err.message}`);
-  }
-};
-
-const shouldIgnoreCoverUploadFailure = (err) => {
-  if (!err?.message) return false;
-  return err.message.includes('status code - 403') || err.message.includes('Cloudinary is not configured');
 };
 
 // @desc    Post a new course
@@ -104,17 +74,7 @@ const createCourse = async (req, res) => {
       return error(res, 400, 'Maximum age must be a valid number');
     }
 
-    let coverImage = null;
-try {
-  console.log('File received in req.file:', req.file);
-  coverImage = await uploadCourseCover(req.file);
-} catch (uploadErr) {
-  console.error('Cloudinary Upload Failed with Error:', uploadErr.message);
-  if (!shouldIgnoreCoverUploadFailure(uploadErr)) {
-    throw uploadErr;
-  }
-  coverImage = null;
-}
+    const coverImage = await uploadImage(req.file, [{ width: 1200, height: 675, crop: 'fill' }]);
 
     const course = await Course.create({
       organisation: req.user.id,
@@ -152,7 +112,7 @@ try {
     return success(res, 201, 'Course created successfully', course);
 
   } catch (err) {
-    return error(res, 500, err.message);
+    return error(res, err.statusCode || 500, err.message);
   }
 };
 
@@ -270,14 +230,7 @@ const updateCourse = async (req, res) => {
       updateData.googleFormLink = googleFormLink || null;
     }
     if (req.file) {
-      try {
-        updateData.coverImage = await uploadCourseCover(req.file);
-      } catch (uploadErr) {
-        if (!shouldIgnoreCoverUploadFailure(uploadErr)) {
-          throw uploadErr;
-        }
-        // Keep existing cover image if replacement upload fails.
-      }
+      updateData.coverImage = await uploadImage(req.file, [{ width: 1200, height: 675, crop: 'fill' }]);
     }
 
     const updatedCourse = await Course.findByIdAndUpdate(
@@ -289,7 +242,7 @@ const updateCourse = async (req, res) => {
     return success(res, 200, 'Course updated', updatedCourse);
 
   } catch (err) {
-    return error(res, 500, err.message);
+    return error(res, err.statusCode || 500, err.message);
   }
 };
 
