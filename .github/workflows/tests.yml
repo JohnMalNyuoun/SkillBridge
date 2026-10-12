@@ -93,46 +93,17 @@ jobs:
           curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK_URL" --output /dev/null
 
   deploy-vercel:
-    name: Deploy frontend to Vercel
+    name: Trigger Vercel deployment
     runs-on: ubuntu-latest
     needs: [backend, frontend]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    defaults:
-      run:
-        working-directory: frontend
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Verify Vercel credentials
+      - name: Verify Vercel deploy hook
+        env:
+          VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
         run: |
-          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
-            echo "::error::Add VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID repository secrets to enable Vercel deployments."
+          if [ -z "$VERCEL_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Add the VERCEL_DEPLOY_HOOK_URL repository secret to enable Vercel deployments."
             exit 1
           fi
-
-      - name: Link Vercel project
-        run: npx --yes vercel@latest link --yes --project "$VERCEL_PROJECT_ID" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
-
-      - name: Pull production environment
-        run: npx --yes vercel@latest pull --yes --environment=production --token "$VERCEL_TOKEN"
-
-      - name: Build production deployment
-        run: npx --yes vercel@latest build --prod --token "$VERCEL_TOKEN"
-
-      - name: Deploy to Vercel
-        run: npx --yes vercel@latest deploy --prebuilt --prod --token "$VERCEL_TOKEN"
+          curl --fail --silent --show-error --request POST "$VERCEL_DEPLOY_HOOK_URL" --output /dev/null

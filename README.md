@@ -47,15 +47,14 @@ The GitHub Actions workflow at `.github/workflows/tests.yml` runs backend tests 
 Configure the providers before enabling deployments:
 
 1. Create a Render web service using `Backend` as its root directory, `npm ci` as its build command, and `npm start` as its start command. Add a deploy hook for the service.
-2. Create a Vercel project with `frontend` as its root directory. Set the production environment variable `VITE_API_URL` to the Render API URL ending in `/api` (for example, `https://your-service.onrender.com/api`).
+2. Create a Vercel project connected to this GitHub repository with `frontend` as its root directory. Set the production environment variable `VITE_API_URL` to the Render API URL ending in `/api` (for example, `https://your-service.onrender.com/api`).
 3. Set the Render service environment variable `FRONTEND_URL` to the Vercel production origin (for example, `https://your-project.vercel.app`). Multiple comma-separated origins are supported.
-4. Add these GitHub repository secrets under **Settings → Secrets and variables → Actions**:
+4. In the Vercel project, open **Settings → Git → Deploy Hooks**, create a hook for the `main` branch, and copy its URL.
+5. Add these GitHub repository secrets under **Settings → Secrets and variables → Actions**:
    - `RENDER_DEPLOY_HOOK_URL`
-   - `VERCEL_TOKEN`
-   - `VERCEL_ORG_ID`
-   - `VERCEL_PROJECT_ID`
+   - `VERCEL_DEPLOY_HOOK_URL`
 
-The workflow does not deploy pull requests or non-`main` branches. Do not store provider credentials in the repository.
+The workflow triggers the Vercel deploy hook only after backend tests, the frontend build, and Playwright tests pass on `main`. The hook URL is a secret; do not store it in the repository. Remove the obsolete `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` GitHub secrets if they are no longer used elsewhere.
 
 ## Project structure
 
