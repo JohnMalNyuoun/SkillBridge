@@ -25,6 +25,7 @@ const allowedOrigins = [
   ...(process.env.FRONTEND_URL || '')
     .split(',')
     .map((origin) => origin.trim())
+    .map((origin) => origin.replace(/\/+$/, ''))
     .filter(Boolean)
 ];
 

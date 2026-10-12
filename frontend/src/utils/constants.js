@@ -1,4 +1,7 @@
-export const API_URL = import.meta.env.VITE_API_URL || '/api';
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, '');
+export const API_URL = configuredApiUrl
+  ? (configuredApiUrl.endsWith('/api') ? configuredApiUrl : `${configuredApiUrl}/api`)
+  : '/api';
 
 export const COMMUNITY_TYPES = [
   { value: 'refugee', label: 'Refugee' },
