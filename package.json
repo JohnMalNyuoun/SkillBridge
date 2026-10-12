@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "install:all": "npm --prefix Backend install && npm --prefix frontend install",
+    "build": "npm --prefix frontend run build",
+    "start": "node Backend/server.js",
+    "postinstall": "npm --prefix Backend install && npm --prefix frontend install && npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cloudinary": "^2.10.0",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.6.3",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.10"
+  }
+}

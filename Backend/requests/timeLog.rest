@@ -1,0 +1,49 @@
+### Time Log - Login
+POST http://localhost:3000/api/timelog/login
+Content-Type: application/json
+
+{
+  "userId": "USER_ID_HERE",
+  "email": "user@example.com",
+  "userType": "youth"
+}
+
+### Time Log - Logout
+POST http://localhost:3000/api/timelog/logout
+Content-Type: application/json
+
+{
+  "userId": "USER_ID_HERE"
+}
+
+### Get User Time Logs
+GET http://localhost:3000/api/timelog/user/USER_ID_HERE
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get User Time Logs with Filters
+GET http://localhost:3000/api/timelog/user/USER_ID_HERE?limit=20&skip=0&startDate=2026-06-01&endDate=2026-06-30
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get User Analytics
+GET http://localhost:3000/api/timelog/user/USER_ID_HERE/analytics?days=30
+Authorization: Bearer YOUR_TOKEN_HERE
+
+### Get All Time Logs (Admin Only)
+GET http://localhost:3000/api/timelog/all
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+### Get All Time Logs with User Type Filter (Admin Only)
+GET http://localhost:3000/api/timelog/all?userType=youth&limit=50&skip=0
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+### Get Platform Analytics (Admin Only)
+GET http://localhost:3000/api/timelog/platform/analytics?days=30
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+### Get Active Sessions (Admin Only)
+GET http://localhost:3000/api/timelog/active-sessions
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+### Delete Time Log (Admin Only)
+DELETE http://localhost:3000/api/timelog/TIME_LOG_ID_HERE
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE

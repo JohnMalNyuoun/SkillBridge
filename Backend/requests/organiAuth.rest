@@ -1,0 +1,38 @@
+
+### Register organisation (with website)
+POST http://localhost:5000/api/auth/org/register
+Content-Type: application/json
+
+{
+  "name": "K-Node Kakuma",
+  "email": "knode@gmail.com",
+  "password": "123456",
+  "type": "CBO",
+  "description": "Providing tech education to youth in Kakuma",
+  "phoneNumber": "+254700000000",
+  "location": "Kakuma",
+  "website": "http://knodekakuma.org"
+}
+
+### Register organisation (without website)
+POST http://localhost:5000/api/auth/org/register
+Content-Type: application/json
+
+{
+  "name": "K-Node Kakuma",
+  "email": "knode@gmail.com",
+  "password": "123456",
+  "type": "CBO",
+  "description": "Providing tech education to youth in Kakuma",
+  "phoneNumber": "+254700000000",
+  "location": "Kakuma"
+}
+
+### Login organisation
+POST http://localhost:5000/api/auth/org/login
+Content-Type: application/json
+
+{
+  "email": "knode@gmail.com",
+  "password": "123456"
+}

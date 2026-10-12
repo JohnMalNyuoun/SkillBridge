@@ -1,0 +1,34 @@
+### Register a new youth (student)
+POST http://localhost:5000/api/auth/youth/register
+Content-Type: application/json
+
+{
+  "fullName": "John Mal",
+  "email": "john.mal@example.com",
+  "password": "password123",
+  "communityType": "refugee",
+  "dateOfBirth": "2004-01-15",
+  "gender": "male",
+  "phoneNumber": "0712345678"
+}
+
+### Login youth
+POST http://localhost:5000/api/auth/youth/login
+Content-Type: application/json
+
+{
+  "email": "john.mal@example.com",
+  "password": "password123"
+}
+
+###
+
+POST http://localhost:5000/api/auth/youth/register
+
+Body (JSON):
+{
+  "fullName": "Test Youth",
+  "email": "test@gmail.com",
+  "password": "123456",
+  "communityType": "refugee"
+}
