@@ -294,12 +294,16 @@ const Courses = () => {
               const alreadyApplied = appliedCourseIds.has(course._id);
               const canApply = !alreadyApplied && !isDeadlinePassed && !isFull;
               const orgLogo = normalizeImageUrl(course.organisation?.logo);
-              const courseCoverImage = normalizeImageUrl(course.coverImage);
+              const rawCourseCover = typeof course.coverImage === 'string' ? course.coverImage.trim() : '';
+              const courseCoverImage = normalizeImageUrl(
+                rawCourseCover.startsWith('//') ? `https:${rawCourseCover}` : rawCourseCover
+              );
 
               return (
                 <article key={item.id} style={{
                   padding: '18px 0',
-                  borderBottom: isLast ? 'none' : '1px solid var(--border-color)'
+                  borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+                  overflow: 'hidden'
                 }}>
                   {/* Org header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
@@ -337,29 +341,26 @@ const Courses = () => {
                   {courseCoverImage && (
                     <Link
                       to={`/courses/${course._id}`}
-                      style={{ display: 'block', textDecoration: 'none', marginBottom: '12px' }}
+                      style={{
+                        display: 'block',
+                        width: 'calc(100% + 32px)',
+                        margin: '0 -16px 12px',
+                        textDecoration: 'none'
+                      }}
                     >
-                      <div style={{
-                        width: '100%',
-                        aspectRatio: '16 / 9',
-                        maxHeight: '520px',
-                        overflow: 'hidden',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-base)'
-                      }}>
-                        <img
-                          src={courseCoverImage}
-                          alt={course.title}
-                          onError={e => { e.currentTarget.style.display = 'none'; }}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block'
-                          }}
-                        />
-                      </div>
+                      <img
+                        src={courseCoverImage}
+                        alt={`${course.title} course cover`}
+                        loading={index === 0 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          maxHeight: '520px',
+                          objectFit: 'cover',
+                          display: 'block'
+                        }}
+                      />
                     </Link>
                   )}
 

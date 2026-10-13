@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
+import ShareButton from '../../components/common/ShareButton';
 import { addCourseComment, getAllCourses, toggleCourseReaction } from '../../services/courseService';
 import { getMyApplications } from '../../services/applicationService';
+import { COURSE_CATEGORIES, DELIVERY_MODES } from '../../utils/constants';
 
 const Home = () => {
   const [courses, setCourses] = useState([]);
@@ -14,6 +16,7 @@ const Home = () => {
   const [reactingCourseId, setReactingCourseId] = useState('');
   const [commentingCourseId, setCommentingCourseId] = useState('');
   const [appliedCourseIds, setAppliedCourseIds] = useState(new Set());
+  const [filters, setFilters] = useState({ search: '', category: '', deliveryMode: '' });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,6 +40,20 @@ const Home = () => {
   }, []);
 
   if (loading) return <Loader />;
+
+  const searchTerm = filters.search.trim().toLowerCase();
+  const visibleCourses = courses.filter((course) => {
+    const matchesSearch = !searchTerm || [
+      course.title,
+      course.description,
+      course.organisation?.name,
+      course.location
+    ].some((value) => value?.toLowerCase().includes(searchTerm));
+
+    return matchesSearch
+      && (!filters.category || course.category === filters.category)
+      && (!filters.deliveryMode || course.deliveryMode === filters.deliveryMode);
+  });
 
   const updateCourseEngagement = (courseId, updater) => {
     setCourses((prev) => prev.map((course) => {
@@ -108,22 +125,107 @@ const Home = () => {
       <Navbar />
 
       <div className="fh-container" style={{ maxWidth: '840px' }}>
-        <header style={{ marginBottom: '18px' }}>
+        <header style={{ marginBottom: '18px', padding: '8px 0 4px' }}>
+          <p style={{
+            color: 'var(--fb-blue)',
+            fontSize: '0.72rem',
+            fontWeight: 900,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            marginBottom: '4px'
+          }}>
+            FursaHub Community
+          </p>
           <h1 style={{
             color: 'var(--text-primary)',
-            fontSize: '1.35rem',
+            fontSize: '1.6rem',
             fontWeight: 900,
             marginBottom: '4px'
           }}>
             Course Feed
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            Latest posted courses from organisations
+            Discover, react to, and share opportunities posted by organisations.
           </p>
           <p style={{ color: 'var(--fb-blue-dark)', fontSize: '0.8rem', marginTop: '6px' }}>
             Active courses only: expired application deadlines are hidden.
           </p>
         </header>
+
+        <section
+          aria-label="Filter courses"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+            gap: '10px',
+            background: 'var(--bg-card)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '14px',
+            boxShadow: 'var(--card-shadow)',
+            padding: '14px',
+            marginBottom: '18px'
+          }}
+        >
+          <input
+            type="search"
+            aria-label="Search courses"
+            placeholder="Search courses or organisations..."
+            value={filters.search}
+            onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            style={{
+              minWidth: 0,
+              minHeight: '42px',
+              padding: '9px 12px',
+              color: 'var(--text-primary)',
+              background: 'var(--bg-section-alt)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              fontSize: '0.86rem'
+            }}
+          />
+          <select
+            aria-label="Filter by category"
+            value={filters.category}
+            onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}
+            style={{
+              minHeight: '42px',
+              padding: '9px 12px',
+              color: 'var(--text-primary)',
+              background: 'var(--bg-section-alt)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              fontSize: '0.86rem'
+            }}
+          >
+            <option value="">All categories</option>
+            {COURSE_CATEGORIES.map((category) => (
+              <option key={category.value} value={category.value}>{category.label}</option>
+            ))}
+          </select>
+          <select
+            aria-label="Filter by delivery mode"
+            value={filters.deliveryMode}
+            onChange={(event) => setFilters((current) => ({ ...current, deliveryMode: event.target.value }))}
+            style={{
+              minHeight: '42px',
+              padding: '9px 12px',
+              color: 'var(--text-primary)',
+              background: 'var(--bg-section-alt)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '10px',
+              fontSize: '0.86rem'
+            }}
+          >
+            <option value="">All delivery modes</option>
+            {DELIVERY_MODES.map((mode) => (
+              <option key={mode.value} value={mode.value}>{mode.label}</option>
+            ))}
+          </select>
+        </section>
+
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', fontWeight: 700, marginBottom: '12px' }}>
+          {visibleCourses.length} {visibleCourses.length === 1 ? 'course' : 'courses'} found
+        </p>
 
         {error && (
           <div
@@ -141,11 +243,13 @@ const Home = () => {
           </div>
         )}
 
-        {courses.length === 0 ? (
-          <div className="fh-empty">No course posts yet.</div>
+        {visibleCourses.length === 0 ? (
+          <div className="fh-empty">
+            {courses.length === 0 ? 'No course posts yet.' : 'No courses match these filters. Try a different search.'}
+          </div>
         ) : (
           <section>
-            {courses.map((course, index) => {
+            {visibleCourses.map((course, index) => {
               const postState = course.engagement || {
                 reactionsCount: 0,
                 commentsCount: 0,
@@ -157,22 +261,28 @@ const Home = () => {
               const isFull = course.filledSlots >= course.totalSlots;
               const alreadyApplied = appliedCourseIds.has(course._id);
               const canApply = !alreadyApplied && !isDeadlinePassed && !isFull;
-              const courseCoverImage = typeof course.coverImage === 'string'
-                ? course.coverImage.replace(/^http:\/\//, 'https://')
-                : '';
+              const rawCourseCover = typeof course.coverImage === 'string' ? course.coverImage.trim() : '';
+              const courseCoverImage = rawCourseCover.startsWith('//')
+                ? `https:${rawCourseCover}`
+                : rawCourseCover.replace(/^http:\/\//, 'https://');
 
               return (
                 <article
                   key={course._id}
                   style={{
-                    padding: '18px 0',
-                    borderBottom: index === courses.length - 1 ? 'none' : '1px solid var(--border-color)'
+                    padding: '18px',
+                    marginBottom: '14px',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '14px',
+                    boxShadow: 'var(--card-shadow)',
+                    overflow: 'hidden'
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                     {course.organisation?.logo ? (
                       <img
-                        src={course.organisation.logo}
+                        src={course.organisation.logo.replace(/^http:\/\//, 'https://')}
                         alt={course.organisation?.name || 'Organisation'}
                         style={{ width: '40px', height: '40px', borderRadius: '999px', objectFit: 'cover' }}
                       />
@@ -223,30 +333,26 @@ const Home = () => {
                   {courseCoverImage && (
                     <Link
                       to={`/courses/${course._id}`}
-                      style={{ display: 'block', textDecoration: 'none', marginBottom: '12px' }}
+                      style={{
+                        display: 'block',
+                        width: 'calc(100% + 36px)',
+                        margin: '0 -18px 12px',
+                        textDecoration: 'none'
+                      }}
                     >
-                      <div style={{
-                        width: '100%',
-                        aspectRatio: '16 / 9',
-                        maxHeight: '520px',
-                        overflow: 'hidden',
-                        borderRadius: '12px',
-                        border: '1px solid var(--border-color)',
-                        background: 'var(--bg-section-alt)'
-                      }}>
-                        <img
-                          src={courseCoverImage}
-                          alt={course.title}
-                          loading="lazy"
-                          decoding="async"
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'cover',
-                            display: 'block'
-                          }}
-                        />
-                      </div>
+                      <img
+                        src={courseCoverImage}
+                        alt={`${course.title} course cover`}
+                        loading={index === 0 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        style={{
+                          width: '100%',
+                          height: 'auto',
+                          maxHeight: '520px',
+                          objectFit: 'cover',
+                          display: 'block'
+                        }}
+                      />
                     </Link>
                   )}
 
@@ -260,7 +366,7 @@ const Home = () => {
                     }}
                   >
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                      {course.category}
+                      {COURSE_CATEGORIES.find((category) => category.value === course.category)?.label || course.category}
                     </span>
                     <span style={{ color: 'var(--text-muted)' }}>•</span>
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
@@ -270,9 +376,20 @@ const Home = () => {
                     <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                       Deadline: {new Date(course.applicationDeadline).toLocaleDateString()}
                     </span>
+                    <span style={{ color: 'var(--text-muted)' }}>•</span>
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                      {(course.deliveryMode || '').replace('_', ' ')}
+                    </span>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    flexWrap: 'wrap',
+                    paddingTop: '12px',
+                    borderTop: '1px solid var(--border-color)'
+                  }}>
                     <button
                       type="button"
                       onClick={() => handleToggleReaction(course._id)}
@@ -353,6 +470,14 @@ const Home = () => {
                     >
                       View Course -&gt;
                     </Link>
+                    <ShareButton
+                      url={`${window.location.origin}/courses/${course._id}`}
+                      title={course.title}
+                      text={course.description?.slice(0, 200)}
+                      entityType="course"
+                      entityId={course._id}
+                      compact
+                    />
                   </div>
 
                   {commentOpen[course._id] && (

@@ -3,6 +3,7 @@ const router = express.Router();
 const {
   createCourse,
   getOrgCourses,
+  getOrgDiscoverCourses,
   getOrgCourse,
   updateCourse,
   publishCourse,
@@ -28,6 +29,7 @@ const handleCourseImageUpload = (req, res, next) => {
 
 router.post('/', protect, isOrganisation, handleCourseImageUpload, createCourse);
 router.get('/', protect, isOrganisation, getOrgCourses);
+router.get('/discover', protect, isOrganisation, getOrgDiscoverCourses);
 router.get('/:id', protect, isOrganisation, getOrgCourse);
 router.put('/:id', protect, isOrganisation, handleCourseImageUpload, updateCourse);
 router.put('/:id/publish', protect, isOrganisation, publishCourse);

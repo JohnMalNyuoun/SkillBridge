@@ -30,6 +30,11 @@ export const getOrgCourses = async () => {
   return response.data;
 };
 
+export const getOrgDiscoverCourses = async () => {
+  const response = await api.get('/org/courses/discover');
+  return response.data;
+};
+
 export const getOrgCourse = async (id) => {
   const response = await api.get(`/org/courses/${id}`);
   return response.data;

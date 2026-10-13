@@ -1,4 +1,6 @@
 const Course = require('../../models/course');
+const Follow = require('../../models/Follow');
+const mongoose = require('mongoose');
 const User = require('../../models/Users');
 const { uploadImage } = require('../../services/cloudinaryImageService');
 const { notify } = require('../../services/notificationService');
@@ -131,11 +133,46 @@ const getOrgCourses = async (req, res) => {
   }
 };
 
+// @desc    Discover public courses posted by other organisations
+// @route   GET /api/org/courses/discover
+// @access  Organisation
+const getOrgDiscoverCourses = async (req, res) => {
+  try {
+    const courses = await Course.find({
+      organisation: { $ne: req.user.id },
+      status: 'published',
+      applicationDeadline: { $gte: new Date() }
+    })
+      .populate('organisation', 'name type location logo')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const follows = await Follow.find({
+      follower: req.user.id,
+      followingModel: 'Organisation'
+    }).select('following').lean();
+    const followedOrganisationIds = new Set(follows.map((follow) => follow.following.toString()));
+
+    const feed = courses.map((course) => ({
+      ...course,
+      isFollowed: followedOrganisationIds.has(course.organisation?._id?.toString())
+    }));
+
+    return success(res, 200, 'Public courses fetched', feed);
+  } catch (err) {
+    return error(res, 500, err.message);
+  }
+};
+
 // @desc    Get single course
 // @route   GET /api/org/courses/:id
 // @access  Organisation
 const getOrgCourse = async (req, res) => {
   try {
+    if (!mongoose.isObjectIdOrHexString(req.params.id)) {
+      return error(res, 400, 'Invalid course ID');
+    }
+
     const course = await Course.findOne({
       _id: req.params.id,
       organisation: req.user.id
@@ -384,6 +421,7 @@ const deleteCourse = async (req, res) => {
 module.exports = {
   createCourse,
   getOrgCourses,
+  getOrgDiscoverCourses,
   getOrgCourse,
   updateCourse,
   publishCourse,
