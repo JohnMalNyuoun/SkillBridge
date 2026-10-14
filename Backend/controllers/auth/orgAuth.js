@@ -116,7 +116,7 @@ const loginOrg = async (req, res) => {
     if (org.status === 'suspended') {
       const reason = org.suspensionReason ? ` Reason: ${org.suspensionReason}.` : '';
       const reinstateStatus = org.reinstatement?.status;
-      let suffix = ' You may submit a reinstatement request to ask FursaHub admins to review your account.';
+      let suffix = ' You may submit a reinstatement request to ask SkillBridge admins to review your account.';
       if (reinstateStatus === 'pending') {
         suffix = ' Your reinstatement request is pending admin review.';
       } else if (reinstateStatus === 'denied') {

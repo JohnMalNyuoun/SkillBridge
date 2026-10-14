@@ -13,8 +13,20 @@ router.get('/', async (req, res) => {
     const broadcasts = await Broadcast.find({ audience: 'all' })
       .sort({ createdAt: -1 })
       .limit(limit)
-      .select('title message image audience createdAt');
-    return success(res, 200, 'Broadcasts fetched', broadcasts);
+      .select('title message image audience createdAt createdBy')
+      .populate('createdBy', 'fullName photo')
+      .lean();
+    const publicBroadcasts = broadcasts.map((broadcast) => ({
+      ...broadcast,
+      author: broadcast.createdBy
+        ? {
+            fullName: broadcast.createdBy.fullName,
+            photo: broadcast.createdBy.photo || null
+          }
+        : null,
+      createdBy: undefined
+    }));
+    return success(res, 200, 'Broadcasts fetched', publicBroadcasts);
   } catch (err) {
     return error(res, 500, err.message);
   }

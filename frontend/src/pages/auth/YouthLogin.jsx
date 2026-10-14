@@ -62,7 +62,7 @@ const YouthLogin = () => {
             color: 'var(--fb-blue)',
             letterSpacing: '-0.5px'
           }}>
-            FursaHub
+            SkillBridge
           </h1>
           <p style={{
             fontSize: '0.85rem',

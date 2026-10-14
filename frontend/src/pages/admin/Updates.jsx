@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import api from '../../services/api';
+import BroadcastAuthor from '../../components/common/BroadcastAuthor';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
 const AdminUpdates = () => {
@@ -311,6 +312,7 @@ const AdminUpdates = () => {
                   paddingBottom: '14px'
                 }}
               >
+                <BroadcastAuthor author={b.author} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
                   <p style={{ color: 'var(--text-primary)', fontWeight: 800, fontSize: '0.95rem', margin: 0 }}>
                     {b.title}

@@ -9,19 +9,19 @@ const fieldsByPurpose = {
     hash: 'emailVerificationCodeHash',
     expires: 'emailVerificationCodeExpires',
     attempts: 'emailVerificationAttempts',
-    subject: 'Verify your FursaHub account'
+    subject: 'Verify your SkillBridge account'
   },
   passwordReset: {
     hash: 'passwordResetCodeHash',
     expires: 'passwordResetCodeExpires',
     attempts: 'passwordResetAttempts',
-    subject: 'Reset your FursaHub password'
+    subject: 'Reset your SkillBridge password'
   },
   passwordChange: {
     hash: 'passwordChangeCodeHash',
     expires: 'passwordChangeCodeExpires',
     attempts: 'passwordChangeAttempts',
-    subject: 'Confirm your FursaHub password change'
+    subject: 'Confirm your SkillBridge password change'
   }
 };
 
@@ -54,8 +54,8 @@ const sendCode = async (account, purpose) => {
     await sendEmail({
       to: account.email,
       subject: fields.subject,
-      text: `Your FursaHub verification code is ${code}. It expires in 10 minutes.`,
-      html: `<p>Your FursaHub verification code is:</p><p style="font-size:24px;font-weight:bold;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>`
+      text: `Your SkillBridge verification code is ${code}. It expires in 10 minutes.`,
+      html: `<p>Your SkillBridge verification code is:</p><p style="font-size:24px;font-weight:bold;letter-spacing:6px">${code}</p><p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>`
     });
   } catch (err) {
     clearCode(account, purpose);

@@ -200,7 +200,7 @@ const rejectApplicant = async (req, res) => {
       recipient: application.youth,
       recipientModel: 'User',
       title: 'Application Update',
-      message: `Your application status has been updated. Log in to FursaHub to view details.`,
+      message: `Your application status has been updated. Log in to SkillBridge to view details.`,
       type: 'application_rejected',
       reference: application._id,
       referenceModel: 'Application',

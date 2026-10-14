@@ -408,8 +408,8 @@ const OrgProfile = () => {
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     <ShareButton
                       url={`${window.location.origin}/profiles/organisation/${profile?._id || profile?.id || ''}`}
-                      title={profile?.name || 'Organisation on FursaHub'}
-                      text={profile?.description?.slice(0, 140) || profile?.bio?.slice(0, 140) || `${profile?.type || ''} on FursaHub`}
+                      title={profile?.name || 'Organisation on SkillBridge'}
+                      text={profile?.description?.slice(0, 140) || profile?.bio?.slice(0, 140) || `${profile?.type || ''} on SkillBridge`}
                       compact
                     />
                     <button

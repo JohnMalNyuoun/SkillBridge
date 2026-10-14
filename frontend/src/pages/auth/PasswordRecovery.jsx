@@ -81,7 +81,7 @@ const PasswordRecovery = ({ accountType, loginPath }) => {
     }}>
       <div style={{ width: '100%', maxWidth: '400px', padding: '32px 20px', marginTop: '24px' }}>
         <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--fb-blue)' }}>FursaHub</h1>
+          <h1 style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--fb-blue)' }}>SkillBridge</h1>
           <p style={{ color: 'var(--text-muted)', marginTop: '4px' }}>Reset your password</p>
         </div>
 

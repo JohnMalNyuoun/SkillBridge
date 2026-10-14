@@ -107,7 +107,22 @@ const listBroadcasts = async (req, res) => {
     const broadcasts = await Broadcast.find()
       .sort({ createdAt: -1 })
       .limit(100);
-    return success(res, 200, 'Broadcasts fetched', broadcasts);
+    await Broadcast.populate(broadcasts, {
+      path: 'createdBy',
+      select: 'fullName photo'
+    });
+    const broadcastsWithAuthors = broadcasts.map((broadcast) => {
+      const item = broadcast.toObject();
+      item.author = broadcast.createdBy
+        ? {
+            fullName: broadcast.createdBy.fullName,
+            photo: broadcast.createdBy.photo || null
+          }
+        : null;
+      item.createdBy = undefined;
+      return item;
+    });
+    return success(res, 200, 'Broadcasts fetched', broadcastsWithAuthors);
   } catch (err) {
     return error(res, 500, err.message);
   }

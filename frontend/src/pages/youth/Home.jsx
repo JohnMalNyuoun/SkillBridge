@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import ShareButton from '../../components/common/ShareButton';
+import BroadcastAuthor from '../../components/common/BroadcastAuthor';
+import api from '../../services/api';
 import { addCourseComment, getAllCourses, toggleCourseReaction } from '../../services/courseService';
 import { getMyApplications } from '../../services/applicationService';
 import { COURSE_CATEGORIES, DELIVERY_MODES } from '../../utils/constants';
@@ -10,8 +12,10 @@ import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Home = () => {
   const [courses, setCourses] = useState([]);
+  const [broadcasts, setBroadcasts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [broadcastError, setBroadcastError] = useState('');
   const [commentDrafts, setCommentDrafts] = useState({});
   const [commentOpen, setCommentOpen] = useState({});
   const [reactingCourseId, setReactingCourseId] = useState('');
@@ -37,7 +41,17 @@ const Home = () => {
         setLoading(false);
       }
     };
+    const fetchBroadcasts = async () => {
+      try {
+        const response = await api.get('/broadcasts', { params: { limit: 20 } });
+        setBroadcasts(response?.data?.data || []);
+      } catch (err) {
+        console.error(err);
+        setBroadcastError(err?.response?.data?.message || 'Failed to load updates');
+      }
+    };
     fetchData();
+    fetchBroadcasts();
   }, []);
 
   if (loading) return <Loader />;
@@ -135,7 +149,7 @@ const Home = () => {
             textTransform: 'uppercase',
             marginBottom: '4px'
           }}>
-            FursaHub Community
+            SkillBridge Community
           </p>
           <h1 style={{
             color: 'var(--text-primary)',
@@ -268,12 +282,8 @@ const Home = () => {
                 <article
                   key={course._id}
                   style={{
-                    padding: '18px',
-                    marginBottom: '14px',
-                    background: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '14px',
-                    boxShadow: 'var(--card-shadow)',
+                    padding: '18px 0',
+                    borderBottom: index === visibleCourses.length - 1 ? 'none' : '1px solid var(--border-color)',
                     overflow: 'hidden'
                   }}
                 >
@@ -333,8 +343,8 @@ const Home = () => {
                       to={`/courses/${course._id}`}
                       style={{
                         display: 'block',
-                        width: 'calc(100% + 36px)',
-                        margin: '0 -18px 12px',
+                        width: '100%',
+                        margin: '0 0 12px',
                         aspectRatio: '16 / 9',
                         maxHeight: '520px',
                         overflow: 'hidden',
@@ -547,6 +557,94 @@ const Home = () => {
             })}
           </section>
         )}
+
+        <section aria-labelledby="youth-home-updates" style={{ marginTop: '28px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: '12px',
+            paddingBottom: '10px',
+            borderBottom: '1px solid var(--border-color)'
+          }}>
+            <h2 id="youth-home-updates" style={{
+              color: 'var(--text-primary)',
+              fontSize: '1.2rem',
+              fontWeight: 800
+            }}>
+              Latest Updates
+            </h2>
+            <Link to="/updates" style={{
+              color: 'var(--fb-blue)',
+              fontSize: '0.84rem',
+              fontWeight: 700,
+              textDecoration: 'none'
+            }}>
+              View all
+            </Link>
+          </div>
+
+          {broadcastError ? (
+            <p role="alert" style={{ color: 'var(--danger-text)', fontSize: '0.88rem', padding: '14px 0' }}>
+              {broadcastError}
+            </p>
+          ) : broadcasts.length === 0 ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', padding: '14px 0' }}>
+              No updates yet.
+            </p>
+          ) : (
+            broadcasts.map((broadcast, index) => (
+              <article
+                key={broadcast._id}
+                style={{
+                  padding: '18px 0',
+                  borderBottom: index === broadcasts.length - 1 ? 'none' : '1px solid var(--border-color)'
+                }}
+              >
+                <BroadcastAuthor author={broadcast.author} />
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.76rem', marginBottom: '6px' }}>
+                  {new Date(broadcast.createdAt).toLocaleDateString()}
+                </p>
+                <h3 style={{
+                  color: 'var(--text-primary)',
+                  fontSize: '1rem',
+                  fontWeight: 800,
+                  marginBottom: '6px'
+                }}>
+                  {broadcast.title}
+                </h3>
+                <p style={{
+                  color: 'var(--text-secondary)',
+                  fontSize: '0.9rem',
+                  lineHeight: 1.65,
+                  whiteSpace: 'pre-wrap',
+                  marginBottom: broadcast.image ? '12px' : 0
+                }}>
+                  {broadcast.message}
+                </p>
+                {broadcast.image && (
+                  <img
+                    src={resolveImageUrl(broadcast.image)}
+                    alt={broadcast.title}
+                    onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                    style={{
+                      width: '100%',
+                      maxHeight: '320px',
+                      objectFit: 'cover',
+                      marginBottom: '12px'
+                    }}
+                  />
+                )}
+                <ShareButton
+                  url={`${window.location.origin}/updates`}
+                  title={broadcast.title}
+                  text={broadcast.message?.slice(0, 200)}
+                  compact
+                />
+              </article>
+            ))
+          )}
+        </section>
       </div>
     </div>
   );

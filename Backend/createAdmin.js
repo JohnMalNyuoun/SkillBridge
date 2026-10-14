@@ -19,7 +19,7 @@ const createAdmin = async () => {
     const hashedPassword = await bcrypt.hash('admin123', salt);
 
     const admin = await User.create({
-      fullName: 'FursaHub Admin',
+      fullName: 'SkillBridge Admin',
       email: 'admin@fursahub.com',
       password: hashedPassword,
       communityType: 'host_community',

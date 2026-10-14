@@ -161,7 +161,7 @@ const PublicOrganisationProfile = () => {
                   <ShareButton
                     url={`${window.location.origin}/profiles/organisation/${id}`}
                     title={profile?.name || 'Organisation'}
-                    text={profile?.description?.slice(0, 140) || `${profile?.type || ''} on FursaHub`}
+                    text={profile?.description?.slice(0, 140) || `${profile?.type || ''} on SkillBridge`}
                     compact
                   />
                 </div>

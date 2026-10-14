@@ -125,7 +125,7 @@ const Organisations = () => {
             Organisations
           </h1>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Approve, reject and manage organisations on FursaHub
+            Approve, reject and manage organisations on SkillBridge
           </p>
         </div>
       </div>

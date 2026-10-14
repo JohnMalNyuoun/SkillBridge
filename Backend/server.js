@@ -59,6 +59,7 @@ app.use('/api/org/notifications', require('./routes/organisation/notifications')
 app.use('/api/profiles', require('./routes/profiles'));
 
 // Admin routes
+app.use('/api/admin/profile', require('./routes/admin/profile'));
 app.use('/api/admin/organisations', require('./routes/admin/organisations'));
 app.use('/api/admin/courses', require('./routes/admin/courses'));
 app.use('/api/admin/users', require('./routes/admin/users'));
@@ -77,7 +78,7 @@ app.use('/api/track', require('./routes/track'));
 app.use('/api/timelog', require('./routes/timeLog'));
 
 app.get('/api', (req, res) => {
-  res.json({ message: 'FursaHub API Running' });
+  res.json({ message: 'SkillBridge API Running' });
 });
 app.get('/api/debug/token', (req, res) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -121,7 +122,7 @@ if (fs.existsSync(distPath)) {
 } else {
   app.get('/', (req, res) => {
     res.json({
-      message: 'FursaHub API Running',
+      message: 'SkillBridge API Running',
       hint: 'Run `npm run build:client` (or `npm run serve`) inside /Backend to build the frontend first.'
     });
   });
@@ -129,7 +130,7 @@ if (fs.existsSync(distPath)) {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`FursaHub running on port ${PORT}`);
+  console.log(`SkillBridge running on port ${PORT}`);
 });
 
 process.on('uncaughtException', (err) => {

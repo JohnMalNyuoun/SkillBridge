@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Loader from '../components/common/Loader';
 import ShareButton from '../components/common/ShareButton';
+import BroadcastAuthor from '../components/common/BroadcastAuthor';
 import { resolveImageUrl } from '../utils/imageUrl';
 
 const stripEmoji = (str) =>
@@ -51,7 +52,7 @@ const Updates = () => {
           letterSpacing: '-0.5px',
           userSelect: 'none'
         }}>
-          FursaHub
+          SkillBridge
         </span>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <Link to="/login" style={{
@@ -102,7 +103,7 @@ const Updates = () => {
             Latest Updates
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem', lineHeight: 1.6 }}>
-            Announcements from the FursaHub team — open opportunities, deadlines, and platform news.
+            Announcements from the SkillBridge team — open opportunities, deadlines, and platform news.
           </p>
         </div>
       </div>
@@ -127,6 +128,7 @@ const Updates = () => {
                   padding: '20px'
                 }}
               >
+                <BroadcastAuthor author={b.author} />
                 <p style={{
                   fontSize: '0.78rem',
                   color: 'var(--fb-blue)',

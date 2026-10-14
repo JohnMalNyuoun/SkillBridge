@@ -92,7 +92,7 @@ const Preferences = () => {
             maxWidth: '700px',
             margin: 0
           }}>
-            Select the categories you are interested in. FursaHub will notify you every time a matching course is posted in Kakuma.
+            Select the categories you are interested in. SkillBridge will notify you every time a matching course is posted in Kakuma.
           </p>
         </div>
 

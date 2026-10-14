@@ -333,8 +333,8 @@ const YouthProfile = () => {
               </button>
               <ShareButton
                 url={`${window.location.origin}/profiles/youth/${profile?._id || profile?.id || ''}`}
-                title={profile?.fullName || 'Youth on FursaHub'}
-                text={profile?.bio?.slice(0, 140) || 'On FursaHub'}
+                title={profile?.fullName || 'Youth on SkillBridge'}
+                text={profile?.bio?.slice(0, 140) || 'On SkillBridge'}
                 compact
               />
             </div>

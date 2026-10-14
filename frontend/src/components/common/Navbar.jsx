@@ -2,6 +2,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
 import { useNotifications } from '../../context/NotificationContext';
+import skillBridgeLogo from '../../assets/skillbridge logo.jpg';
 
 const Icon = ({ name, active = false, size = 24 }) => {
   const fill = active ? 'currentColor' : 'none';
@@ -220,31 +221,22 @@ const Navbar = () => {
         <Link
           to={homePath}
           onClick={(e) => handleNavClick(e, homePath)}
-          style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+          aria-label="SkillBridge home"
+          style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}
         >
-          <div style={{
-            width: '34px',
-            height: '34px',
-            borderRadius: '10px',
-            background: 'var(--fb-blue)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-on-primary)',
-            fontWeight: 900,
-            fontSize: '0.95rem',
-            letterSpacing: '-0.5px',
-            boxShadow: '0 2px 8px rgba(24, 119, 242, 0.3)'
-          }}>
-            F
-          </div>
+          <img
+            src={skillBridgeLogo}
+            alt=""
+            style={{ width: '42px', height: '34px', objectFit: 'contain', background: '#fff', borderRadius: '6px' }}
+          />
           <span style={{
             fontSize: '1.25rem',
             fontWeight: 900,
-            color: 'var(--fb-blue)',
-            letterSpacing: '-0.5px'
+            color: 'var(--text-primary)',
+            letterSpacing: '-0.5px',
+            whiteSpace: 'nowrap'
           }}>
-            FursaHub
+            SkillBridge
           </span>
         </Link>
 
@@ -426,31 +418,23 @@ const Navbar = () => {
         <Link
           to={homePath}
           onClick={(e) => handleNavClick(e, homePath)}
-          style={{ display: 'flex', alignItems: 'center', gap: '10px' }}
+          aria-label="SkillBridge home"
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}
         >
-          <div style={{
-            width: '30px',
-            height: '30px',
-            borderRadius: '8px',
-            background: 'var(--fb-blue)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-on-primary)',
-            fontWeight: 900,
-            fontSize: '0.88rem',
-            boxShadow: '0 2px 6px rgba(24, 119, 242, 0.3)'
-          }}>
-            F
-          </div>
+          <img
+            src={skillBridgeLogo}
+            alt=""
+            style={{ width: '38px', height: '30px', objectFit: 'contain', background: '#fff', borderRadius: '6px' }}
+          />
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span style={{
-              fontSize: '1.05rem',
+              fontSize: '0.98rem',
               fontWeight: 900,
-              color: 'var(--fb-blue)',
-              letterSpacing: '-0.5px'
+              color: 'var(--text-primary)',
+              letterSpacing: '-0.5px',
+              whiteSpace: 'nowrap'
             }}>
-              FursaHub
+              SkillBridge
             </span>
             {currentLabel && (
               <span style={{

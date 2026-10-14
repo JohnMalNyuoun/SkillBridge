@@ -1,7 +1,7 @@
 <wizard-report>
 # PostHog post-wizard report
 
-The wizard has completed a deep integration of PostHog analytics into the FursaHub Node.js backend. A singleton PostHog client was added in `config/posthog.js` and wired into Express via `setupExpressRequestContext` (automatically reads `X-POSTHOG-SESSION-ID` and `X-POSTHOG-DISTINCT-ID` headers from the frontend for cross-domain session correlation) and `setupExpressErrorHandler` (captures unhandled Express errors to PostHog Error Tracking). Fifteen business events were instrumented across six controller files covering the full user lifecycle: registration and login for both youth and organisations, the course creation and publishing workflow, the application submission-to-acceptance funnel, and the post-course outcome submission.
+The wizard has completed a deep integration of PostHog analytics into the SkillBridge Node.js backend. A singleton PostHog client was added in `config/posthog.js` and wired into Express via `setupExpressRequestContext` (automatically reads `X-POSTHOG-SESSION-ID` and `X-POSTHOG-DISTINCT-ID` headers from the frontend for cross-domain session correlation) and `setupExpressErrorHandler` (captures unhandled Express errors to PostHog Error Tracking). Fifteen business events were instrumented across six controller files covering the full user lifecycle: registration and login for both youth and organisations, the course creation and publishing workflow, the application submission-to-acceptance funnel, and the post-course outcome submission.
 
 | Event name | Description | File |
 |---|---|---|

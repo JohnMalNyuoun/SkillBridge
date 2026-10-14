@@ -53,7 +53,7 @@ const OrgReinstate = () => {
             color: 'var(--fb-blue)',
             letterSpacing: '-0.5px'
           }}>
-            FursaHub
+            SkillBridge
           </h1>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '4px' }}>
             Organisation Reinstatement
@@ -69,7 +69,7 @@ const OrgReinstate = () => {
           Request to be reinstated
         </h2>
         <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-          Confirm your organisation credentials and describe how you have addressed the issue. A FursaHub admin will review your request.
+          Confirm your organisation credentials and describe how you have addressed the issue. A SkillBridge admin will review your request.
         </p>
 
         {error && (

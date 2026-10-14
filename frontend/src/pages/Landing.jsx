@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import skillBridgeLogo from '../assets/skillbridge logo.jpg';
 
 const Landing = () => {
   return (
@@ -17,14 +18,12 @@ const Landing = () => {
         alignItems: 'center',
         justifyContent: 'space-between'
       }}>
-        <span style={{
-          fontSize: '1.4rem',
-          fontWeight: 900,
-          color: 'var(--fb-blue)',
-          letterSpacing: '-0.5px'
-        }}>
-          FursaHub
-        </span>
+        <Link to="/" aria-label="SkillBridge home" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
+          <img src={skillBridgeLogo} alt="" style={{ width: '48px', height: '34px', objectFit: 'contain', background: '#fff', borderRadius: '6px' }} />
+          <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
+            SkillBridge
+          </span>
+        </Link>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <Link to="/updates" style={{
@@ -98,7 +97,7 @@ const Landing = () => {
             maxWidth: '520px',
             margin: '0 auto 36px'
           }}>
-            FursaHub connects youth in Kakuma Refugee Camp with courses,
+            SkillBridge connects youth in Kakuma Refugee Camp with courses,
             mentorship, and opportunities posted by NGOs and CBOs 
             all in one place.
           </p>
@@ -132,7 +131,7 @@ const Landing = () => {
             opportunities simply because they didn't hear about them in time.
             <br /><br />
             <strong style={{ color: 'var(--text-primary)' }}>
-              FursaHub fixes that.
+              SkillBridge fixes that.
             </strong>
           </p>
         </div>
@@ -173,7 +172,7 @@ const Landing = () => {
               {
                 
                 title: 'Apply Directly',
-                desc: 'Submit your application inside FursaHub — no WhatsApp needed'
+                desc: 'Submit your application inside SkillBridge — no WhatsApp needed'
               },
               {
                 
@@ -241,7 +240,7 @@ const Landing = () => {
               marginBottom: '28px',
               marginTop: '16px'
             }}>
-              Whether you're a refugee or host community youth — FursaHub
+              Whether you're a refugee or host community youth — SkillBridge
               gives you one place to find every course, training, and
               opportunity available in Kakuma. Apply, track, and get notified.
             </p>
@@ -384,7 +383,7 @@ const Landing = () => {
               maxWidth: '620px',
               margin: '0 auto'
             }}>
-              Donors fund what they can measure. FursaHub's impact dashboard captures
+              Donors fund what they can measure. SkillBridge's impact dashboard captures
               every outcome — completion rates, employment, business launches, further
               education — so you walk into your next funding meeting with proof, not promises.
             </p>
@@ -528,7 +527,7 @@ const Landing = () => {
                   },
                   {
                     title: 'Stand Out to Funders',
-                    desc: 'Most organisations submit promises. With FursaHub, you submit verified evidence — and win more funding.'
+                    desc: 'Most organisations submit promises. With SkillBridge, you submit verified evidence — and win more funding.'
                   }
                 ].map((item, i) => (
                   <li key={i} style={{
@@ -604,14 +603,14 @@ const Landing = () => {
             color: 'var(--text-primary)',
             marginBottom: '16px'
           }}>
-            Ready to Find Your Fursa?
+            Ready to find your next opportunity?
           </h2>
           <p style={{
             fontSize: '1rem',
             color: 'var(--text-secondary)',
             marginBottom: '32px'
           }}>
-            Join youth and organisations already using FursaHub in Kakuma.
+            Join youth and organisations already using SkillBridge in Kakuma.
           </p>
           <Link to="/register" style={{
             background: 'var(--fb-blue)',
@@ -641,7 +640,7 @@ const Landing = () => {
             color: 'var(--fb-blue)',
             marginBottom: '8px'
           }}>
-            FursaHub
+            SkillBridge
           </p>
           <p style={{
             fontSize: '0.85rem',
@@ -679,7 +678,7 @@ const Landing = () => {
             color: 'var(--footer-text)',
             opacity: 0.5
           }}>
-            © 2026 FursaHub. Built for the youth of Kakuma.
+            © 2026 SkillBridge. Built for the youth of Kakuma.
           </p>
         </div>
       </footer>

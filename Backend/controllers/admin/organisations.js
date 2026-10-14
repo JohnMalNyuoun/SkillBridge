@@ -69,7 +69,7 @@ const approveOrganisation = async (req, res) => {
       recipient: org._id,
       recipientModel: 'Organisation',
       title: 'Organisation Approved',
-      message: `Your organisation ${org.name} has been approved. You can now post courses on FursaHub.`,
+      message: `Your organisation ${org.name} has been approved. You can now post courses on SkillBridge.`,
       type: 'org_approved',
       reference: org._id,
       referenceModel: 'Organisation'

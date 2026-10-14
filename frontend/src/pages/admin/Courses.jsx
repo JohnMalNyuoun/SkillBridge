@@ -81,7 +81,7 @@ const Courses = () => {
             All Courses
           </h1>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Monitor and manage all courses on FursaHub
+            Monitor and manage all courses on SkillBridge
           </p>
         </div>
       </div>

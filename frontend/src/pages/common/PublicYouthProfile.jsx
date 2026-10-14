@@ -185,7 +185,7 @@ const PublicYouthProfile = () => {
                   <ShareButton
                     url={`${window.location.origin}/profiles/youth/${id}`}
                     title={profile?.fullName || 'Youth Profile'}
-                    text={profile?.bio?.slice(0, 140) || 'On FursaHub'}
+                    text={profile?.bio?.slice(0, 140) || 'On SkillBridge'}
                     compact
                   />
                 </div>

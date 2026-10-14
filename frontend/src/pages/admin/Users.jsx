@@ -71,7 +71,7 @@ const Users = () => {
             Youth Users
           </h1>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            View and manage all registered youth on FursaHub
+            View and manage all registered youth on SkillBridge
           </p>
         </div>
       </div>

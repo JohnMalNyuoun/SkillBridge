@@ -299,7 +299,7 @@ const requestEmailChange = async (req, res) => {
 
     await sendEmail({
       to: normalized,
-      subject: 'Verify your new email - FursaHub',
+      subject: 'Verify your new email - SkillBridge',
       text: `Verify your new email by opening this link: ${verificationUrl}`,
       html: `<p>Verify your new email by clicking the link below:</p><p><a href="${verificationUrl}">${verificationUrl}</a></p><p>This link expires in 1 hour.</p>`
     });

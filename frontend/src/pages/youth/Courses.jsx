@@ -2,8 +2,6 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
-import ShareButton from '../../components/common/ShareButton';
-import api from '../../services/api';
 import { getAllCourses, addCourseComment, toggleCourseReaction } from '../../services/courseService';
 import { getMyApplications } from '../../services/applicationService';
 import useAuth from '../../hooks/useAuth';
@@ -16,7 +14,6 @@ const normalizeImageUrl = (url) => {
 const Courses = () => {
   const { user } = useAuth();
   const [courses, setCourses] = useState([]);
-  const [broadcasts, setBroadcasts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [appliedCourseIds, setAppliedCourseIds] = useState(new Set());
   const [commentDrafts, setCommentDrafts] = useState({});
@@ -31,14 +28,12 @@ const Courses = () => {
       const params = {};
       if (filters.search) params.search = filters.search;
 
-      const [coursesRes, appsRes, broadcastsRes] = await Promise.all([
+      const [coursesRes, appsRes] = await Promise.all([
         getAllCourses(params),
-        getMyApplications(),
-        api.get('/broadcasts', { params: { limit: 20 } }).catch(() => ({ data: { data: [] } }))
+        getMyApplications()
       ]);
       setCourses(coursesRes.data || []);
       setAppliedCourseIds(new Set((appsRes.data || []).map(a => a.course?._id).filter(Boolean)));
-      setBroadcasts(broadcastsRes?.data?.data || []);
     } catch (err) {
       console.error(err);
     } finally {
@@ -59,32 +54,6 @@ const Courses = () => {
   }, [user?.photo, user?.updatedAt]);
 
   const handleFilter = (e) => setFilters(prev => ({ ...prev, [e.target.name]: e.target.value }));
-
-  const visibleBroadcasts = useMemo(() => {
-    const q = filters.search.trim().toLowerCase();
-    if (!q) return broadcasts;
-    return broadcasts.filter((b) =>
-      `${b.title || ''} ${b.message || ''}`.toLowerCase().includes(q)
-    );
-  }, [broadcasts, filters.search]);
-
-  const feedItems = useMemo(() => {
-    const courseItems = courses.map((c) => ({
-      kind: 'course',
-      id: `c-${c._id}`,
-      createdAt: c.createdAt,
-      data: c
-    }));
-    const broadcastItems = visibleBroadcasts.map((b) => ({
-      kind: 'broadcast',
-      id: `b-${b._id}`,
-      createdAt: b.createdAt,
-      data: b
-    }));
-    return [...courseItems, ...broadcastItems].sort(
-      (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-    );
-  }, [courses, visibleBroadcasts]);
 
   const updateEngagement = (courseId, updater) => {
     setCourses(prev => prev.map(c => {
@@ -201,11 +170,10 @@ const Courses = () => {
 
         <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: '600' }}>
           {courses.length} course{courses.length !== 1 ? 's' : ''} found
-          {visibleBroadcasts.length > 0 && ` · ${visibleBroadcasts.length} update${visibleBroadcasts.length !== 1 ? 's' : ''}`}
         </p>
 
         {/* Feed */}
-        {loading ? <Loader /> : feedItems.length === 0 ? (
+        {loading ? <Loader /> : courses.length === 0 ? (
           <div className="fh-empty">
             <p style={{ fontSize: '1rem', marginBottom: '6px', color: 'var(--text-secondary)', fontWeight: '600' }}>
               No courses found
@@ -214,82 +182,8 @@ const Courses = () => {
           </div>
         ) : (
           <section>
-            {feedItems.map((item, index) => {
-              const isLast = index === feedItems.length - 1;
-
-              if (item.kind === 'broadcast') {
-                const b = item.data;
-                return (
-                  <article key={item.id} style={{
-                    padding: '18px 0',
-                    borderBottom: isLast ? 'none' : '1px solid var(--border-color)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                      <div style={{
-                        width: '40px', height: '40px', borderRadius: '999px',
-                        background: 'var(--fb-blue)', display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', color: 'var(--text-on-primary)', fontWeight: 900
-                      }}>
-                        F
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p style={{ color: 'var(--text-primary)', fontSize: '0.92rem', fontWeight: 800, margin: 0 }}>
-                          FursaHub Team
-                        </p>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                          <span style={{
-                            background: 'var(--fb-blue-subtle)',
-                            color: 'var(--fb-blue)',
-                            padding: '1px 6px',
-                            borderRadius: '6px',
-                            fontWeight: 800,
-                            fontSize: '0.68rem',
-                            marginRight: '6px',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.04em'
-                          }}>
-                            Update
-                          </span>
-                          {new Date(b.createdAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-
-                    <h2 style={{ color: 'var(--text-primary)', fontSize: '1.03rem', fontWeight: 800, marginBottom: '8px' }}>
-                      {b.title}
-                    </h2>
-
-                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.65, marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
-                      {b.message}
-                    </p>
-
-                    {b.image && (
-                      <img src={resolveImageUrl(b.image)} alt={b.title}
-                        onError={e => { e.currentTarget.style.display = 'none'; }}
-                        style={{
-                          width: '100%', maxHeight: '320px', objectFit: 'cover',
-                          borderRadius: '10px', border: '1px solid var(--border-color)', marginBottom: '12px'
-                        }} />
-                    )}
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                      <Link to="/updates" style={{
-                        color: 'var(--fb-blue)', fontWeight: 700, fontSize: '0.82rem', textDecoration: 'none'
-                      }}>
-                        View all updates →
-                      </Link>
-                      <ShareButton
-                        url={`${window.location.origin}/updates`}
-                        title={b.title}
-                        text={b.message?.slice(0, 200)}
-                        compact
-                      />
-                    </div>
-                  </article>
-                );
-              }
-
-              const course = item.data;
+            {courses.map((course, index) => {
+              const isLast = index === courses.length - 1;
               const eng = course.engagement || { reactionsCount: 0, commentsCount: 0, reactedByMe: false, recentComments: [] };
               const isDeadlinePassed = new Date() > new Date(course.applicationDeadline);
               const isFull = course.filledSlots >= course.totalSlots;
@@ -299,7 +193,7 @@ const Courses = () => {
               const courseCoverImage = normalizeImageUrl(course.coverImage);
 
               return (
-                <article key={item.id} style={{
+                <article key={course._id} style={{
                   padding: '18px 0',
                   borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
                   overflow: 'hidden'
@@ -342,8 +236,8 @@ const Courses = () => {
                       to={`/courses/${course._id}`}
                       style={{
                         display: 'block',
-                        width: 'calc(100% + 32px)',
-                        margin: '0 -16px 12px',
+                        width: '100%',
+                        margin: '0 0 12px',
                         aspectRatio: '16 / 9',
                         maxHeight: '520px',
                         overflow: 'hidden',

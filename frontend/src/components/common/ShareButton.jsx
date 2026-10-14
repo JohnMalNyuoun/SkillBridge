@@ -35,7 +35,7 @@ const SHARE_TARGETS = [
     key: 'email',
     label: 'Email',
     build: ({ url, title, text }) =>
-      `mailto:?subject=${encodeURIComponent(title || 'FursaHub')}&body=${encodeURIComponent(`${text ? `${text}\n\n` : ''}${url}`)}`
+      `mailto:?subject=${encodeURIComponent(title || 'SkillBridge')}&body=${encodeURIComponent(`${text ? `${text}\n\n` : ''}${url}`)}`
   }
 ];
 

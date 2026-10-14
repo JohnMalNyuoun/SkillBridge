@@ -1,8 +1,6 @@
-# FursaHub
+# SkillBridge
 
-# FursaHub
-
-FursaHub is a platform that connects young people with courses and opportunities offered by organisations. It supports course discovery, applications, notifications, profiles, outcome tracking, and administrative management.
+SkillBridge is a platform that connects young people with courses and opportunities offered by organisations. It supports course discovery, applications, notifications, profiles, outcome tracking, and administrative management.
 
 ## Features
 
@@ -48,6 +46,7 @@ Configure the providers before enabling deployments:
 
 1. Create a Render web service using the repository root (leave **Root Directory** blank). Set **Build Command** to `npm ci --prefix Backend --omit=dev && npm ci --prefix frontend --include=dev && npm --prefix frontend run build` and **Start Command** to `npm --prefix Backend start`. This builds `frontend/dist`, which the Express server serves alongside the API.
 2. Create a Vercel project connected to this GitHub repository with `frontend` as its root directory. Set the production environment variable `VITE_API_URL` to the Render host (for example, `https://your-service.onrender.com`). The frontend appends `/api` automatically.
+   Set `VITE_SITE_URL` to the exact public production origin (for example, `https://skillbridge.example.org`, with no path). The frontend uses it for canonical and social URLs and generates `sitemap.xml`; without it, the sitemap is intentionally omitted rather than publishing incorrect URLs.
 3. Set the Render service environment variable `FRONTEND_URL` to the exact Vercel origin(s), with no path (for example, `https://your-project.vercel.app`). Multiple comma-separated origins are supported. Add each Vercel preview origin separately if you need preview deployments to call the API.
 4. In the Vercel project, open **Settings → Git → Deploy Hooks**, create a hook for the `main` branch, and copy its URL.
 5. Add these GitHub repository secrets under **Settings → Secrets and variables → Actions**:
@@ -78,7 +77,7 @@ MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=use_a_long_random_secret
 
 RESEND_API_KEY=re_your_resend_api_key
-RESEND_FROM_EMAIL=FursaHub <no-reply@your-verified-domain.com>
+RESEND_FROM_EMAIL=SkillBridge <no-reply@your-verified-domain.com>
 FRONTEND_URL=https://your-frontend-domain.vercel.app
 
 Verify your sending domain with Resend, then configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in the Render service environment. The sender must use that verified domain.
@@ -101,9 +100,6 @@ npm start
 
 
 ## License
-
-
-I’d also remove or replace the default Vite text in [`frontend/README.md`](C:\Users\Student\Desktop\Fursa-Hub\frontend\README.md), since it currently describes the starter template rather than FursaHub.
 
 
 ## Documentation

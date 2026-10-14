@@ -1,44 +1,75 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import useAuth from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
+import { getAdminProfile, removeAdminPhoto, updateAdminPhoto } from '../../services/adminProfileService';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const SETTINGS_KEY = 'fh_settings_admin_tab';
 
 const AdminSettings = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { language, setLanguage } = useLanguage();
   const [notice, setNotice] = useState('');
-  const [settings, setSettings] = useState({
-    theme: 'dark',
-    language,
-    alerts: {
-      orgRequests: true,
-      systemUpdates: true
-    }
-  });
-
-  useEffect(() => {
+  const [profile, setProfile] = useState(user);
+  const [photoError, setPhotoError] = useState('');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoVersion, setPhotoVersion] = useState(0);
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const photoInputRef = useRef(null);
+  const [settings, setSettings] = useState(() => {
+    const initialSettings = {
+      theme: 'dark',
+      language,
+      alerts: {
+        orgRequests: true,
+        systemUpdates: true
+      }
+    };
     const saved = sessionStorage.getItem(SETTINGS_KEY);
-    if (!saved) return;
+    if (!saved) return initialSettings;
 
     try {
       const parsed = JSON.parse(saved);
-      setSettings((current) => ({
-        ...current,
+      return {
+        ...initialSettings,
         ...parsed,
         alerts: {
-          ...current.alerts,
+          ...initialSettings.alerts,
           ...(parsed.alerts || {})
         }
-      }));
+      };
     } catch (err) {
       console.error('Failed to parse admin settings', err);
+      return initialSettings;
     }
-  }, []);
+  });
+  const photoUrl = profile?.photo ? resolveImageUrl(profile.photo) : '';
+  const versionedPhotoUrl = photoUrl
+    ? `${photoUrl}${photoUrl.includes('?') ? '&' : '?'}v=${photoVersion}`
+    : '';
 
+  useEffect(() => {
+    let cancelled = false;
+    getAdminProfile()
+      .then((response) => {
+        if (!cancelled && response?.data) {
+          setProfile(response.data);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setPhotoError(
+            err.response?.data?.message || 'Could not load the admin profile.',
+          );
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   useEffect(() => {
     sessionStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     document.documentElement.setAttribute('data-theme', settings.theme);
@@ -52,6 +83,67 @@ const AdminSettings = () => {
         [key]: !current.alerts[key]
       }
     }));
+  };
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setPhotoError('');
+    setNotice('');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setPhotoError('Choose a JPG, PNG, or WEBP image.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setPhotoError('The profile picture must be 5 MB or smaller.');
+      event.target.value = '';
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('photo', file);
+    setPhotoBusy(true);
+    try {
+      const response = await updateAdminPhoto(formData);
+      const photo = response?.data?.photo;
+      if (!photo) throw new Error('The server did not return the uploaded photo.');
+      setProfile((current) => ({ ...current, photo }));
+      updateUser({ photo });
+      setPhotoVersion(Date.now());
+      setPhotoFailed(false);
+      setNotice('Profile picture updated.');
+    } catch (err) {
+      setPhotoError(
+        err.response?.data?.message || err.message || 'Could not update the profile picture.',
+      );
+    } finally {
+      setPhotoBusy(false);
+      event.target.value = '';
+    }
+  };
+
+  const handlePhotoRemove = async () => {
+    setPhotoError('');
+    setNotice('');
+    setPhotoBusy(true);
+    try {
+      const response = await removeAdminPhoto();
+      if (response?.data?.photo !== null) {
+        throw new Error('The server did not confirm that the profile picture was removed.');
+      }
+      setProfile((current) => ({ ...current, photo: null }));
+      updateUser({ photo: null });
+      setPhotoFailed(false);
+      setNotice('Profile picture removed.');
+    } catch (err) {
+      setPhotoError(
+        err.response?.data?.message || err.message || 'Could not remove the profile picture.',
+      );
+    } finally {
+      setPhotoBusy(false);
+    }
   };
 
   const handleLogout = () => {
@@ -104,14 +196,116 @@ const AdminSettings = () => {
             {notice}
           </div>
         )}
+        {photoError && (
+          <div role="alert" style={{
+            background: 'var(--danger-bg)',
+            border: '1px solid var(--danger-primary)',
+            borderRadius: '12px',
+            padding: '12px',
+            color: 'var(--danger-text)'
+          }}>
+            {photoError}
+          </div>
+        )}
 
-        <section style={{ padding: 0 }}>
-          <p style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 800, margin: 0 }}>
-            {user?.fullName || 'Admin User'}
-          </p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', marginTop: '4px' }}>
-            {user?.email || 'Administrator'}
-          </p>
+        <section aria-label="Admin profile" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px',
+          flexWrap: 'wrap',
+          padding: '20px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '14px'
+        }}>
+          <div style={{
+            width: '112px',
+            height: '112px',
+            borderRadius: '50%',
+            overflow: 'hidden',
+            flexShrink: 0,
+            background: 'var(--fb-blue-subtle)',
+            border: '2px solid var(--fb-blue)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--fb-blue)',
+            fontSize: '2rem',
+            fontWeight: 800
+          }}>
+            {versionedPhotoUrl && !photoFailed ? (
+              <img
+                src={versionedPhotoUrl}
+                alt={`${profile?.fullName || 'Admin'} profile picture`}
+                onError={() => setPhotoFailed(true)}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : (
+              (profile?.fullName || 'A')
+                .trim()
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase())
+                .join('')
+            )}
+          </div>
+          <div style={{ minWidth: 0, flex: '1 1 220px' }}>
+            <p style={{ color: 'var(--text-primary)', fontSize: '1rem', fontWeight: 800, margin: 0 }}>
+              {profile?.fullName || user?.fullName || 'Admin User'}
+            </p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem', marginTop: '4px' }}>
+              {profile?.email || user?.email || 'Administrator'}
+            </p>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handlePhotoChange}
+              aria-label="Choose profile picture"
+              style={{ display: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '14px' }}>
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={photoBusy}
+                style={{
+                  padding: '9px 14px',
+                  border: 'none',
+                  borderRadius: '9px',
+                  background: 'var(--fb-blue)',
+                  color: 'var(--text-on-primary)',
+                  fontWeight: 700,
+                  cursor: photoBusy ? 'wait' : 'pointer',
+                  opacity: photoBusy ? 0.65 : 1
+                }}
+              >
+                {photoBusy ? 'Updating…' : profile?.photo ? 'Change picture' : 'Add picture'}
+              </button>
+              {profile?.photo && (
+                <button
+                  type="button"
+                  onClick={handlePhotoRemove}
+                  disabled={photoBusy}
+                  style={{
+                    padding: '9px 14px',
+                    border: '1px solid var(--danger-primary)',
+                    borderRadius: '9px',
+                    background: 'var(--danger-bg)',
+                    color: 'var(--danger-text)',
+                    fontWeight: 700,
+                    cursor: photoBusy ? 'wait' : 'pointer',
+                    opacity: photoBusy ? 0.65 : 1
+                  }}
+                >
+                  Remove picture
+                </button>
+              )}
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', margin: '8px 0 0' }}>
+              JPG, PNG, or WEBP; up to 5 MB.
+            </p>
+          </div>
         </section>
 
         <section style={{ padding: 0 }}>

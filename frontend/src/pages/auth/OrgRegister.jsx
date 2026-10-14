@@ -100,7 +100,7 @@ const OrgRegister = () => {
             color: 'var(--fb-blue)',
             letterSpacing: '-0.5px'
           }}>
-            FursaHub
+            SkillBridge
           </h1>
           <p style={{
             fontSize: '0.85rem',
@@ -125,7 +125,7 @@ const OrgRegister = () => {
           color: 'var(--text-muted)',
           marginBottom: '24px'
         }}>
-          Your account will be reviewed and approved by FursaHub admin before you can post courses.
+          Your account will be reviewed and approved by a SkillBridge admin before you can post courses.
         </p>
 
         {error && (

@@ -49,6 +49,7 @@ import OutcomeForm from './pages/youth/OutcomeForm';
 import Loader from './components/common/Loader';
 import PublicYouthProfile from './pages/common/PublicYouthProfile';
 import PublicOrganisationProfile from './pages/common/PublicOrganisationProfile';
+import Seo from './components/common/Seo';
 // Route guards 
 const AuthRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -86,69 +87,72 @@ function App () {
   const routeRefreshKey = `${location.pathname}:${location.state?.__refreshNonce || 0}`;
 
   return (
-    <Routes key={routeRefreshKey}>
-      {/* Public */}
+    <>
+      <Seo />
+      <Routes key={routeRefreshKey}>
+        {/* Public */}
 
-      <Route path="/" element={<Landing />} />
-      <Route path="/updates" element={<Updates />} />
-      <Route path="/login" element={<YouthLogin />} />
-      <Route path="/register" element={<YouthRegister />} />
-      <Route path="/org/login" element={<OrgLogin />} />
-      <Route path="/org/register" element={<OrgRegister />} />
-      <Route path="/org/reinstate" element={<OrgReinstate />} />
-      <Route path="/forgot-password" element={<PasswordRecovery accountType="youth" loginPath="/login" />} />
-      <Route path="/org/forgot-password" element={<PasswordRecovery accountType="organisation" loginPath="/org/login" />} />
+        <Route path="/" element={<Landing />} />
+        <Route path="/updates" element={<Updates />} />
+        <Route path="/login" element={<YouthLogin />} />
+        <Route path="/register" element={<YouthRegister />} />
+        <Route path="/org/login" element={<OrgLogin />} />
+        <Route path="/org/register" element={<OrgRegister />} />
+        <Route path="/org/reinstate" element={<OrgReinstate />} />
+        <Route path="/forgot-password" element={<PasswordRecovery accountType="youth" loginPath="/login" />} />
+        <Route path="/org/forgot-password" element={<PasswordRecovery accountType="organisation" loginPath="/org/login" />} />
 
-      {/* Shared profiles */}
-      <Route path="/profiles/youth/:id" element={<AuthRoute><PublicYouthProfile /></AuthRoute>} />
-      <Route path="/profiles/organisation/:id" element={<AuthRoute><PublicOrganisationProfile /></AuthRoute>} />
+        {/* Shared profiles */}
+        <Route path="/profiles/youth/:id" element={<AuthRoute><PublicYouthProfile /></AuthRoute>} />
+        <Route path="/profiles/organisation/:id" element={<AuthRoute><PublicOrganisationProfile /></AuthRoute>} />
 
-      {/* Youth */}
-      <Route path="/home" element={<YouthRoute><YouthHome /></YouthRoute>} />
-      <Route path="/courses" element={<YouthRoute><YouthCourses /></YouthRoute>} />
-      <Route path="/courses/:id" element={<YouthRoute><CourseDetail /></YouthRoute>} />
-      <Route path="/applications" element={<YouthRoute><YouthApplications /></YouthRoute>} />
-      <Route path="/notifications" element={<YouthRoute><YouthNotifications /></YouthRoute>} />
-      <Route path="/profile" element={<YouthRoute><YouthProfile /></YouthRoute>} />
-      <Route path="/youth/profile" element={<YouthRoute><YouthProfile /></YouthRoute>} />
-      <Route path="/settings" element={<YouthRoute><YouthSettings /></YouthRoute>} />
-      <Route path="/youth/settings" element={<YouthRoute><YouthSettings /></YouthRoute>} />
-      <Route path="/account" element={<YouthRoute><YouthAccount /></YouthRoute>} />
-      <Route path="/youth/account" element={<YouthRoute><YouthAccount /></YouthRoute>} />
-      <Route path="/quick-access" element={<YouthRoute><YouthQuickAccess /></YouthRoute>} />
-      <Route path="/youth/quick-access" element={<YouthRoute><YouthQuickAccess /></YouthRoute>} />
-      <Route path="/preferences" element={<YouthRoute><Preferences /></YouthRoute>} />
-      <Route path="/youth/preferences" element={<YouthRoute><Preferences /></YouthRoute>} />
+        {/* Youth */}
+        <Route path="/home" element={<YouthRoute><YouthHome /></YouthRoute>} />
+        <Route path="/courses" element={<YouthRoute><YouthCourses /></YouthRoute>} />
+        <Route path="/courses/:id" element={<YouthRoute><CourseDetail /></YouthRoute>} />
+        <Route path="/applications" element={<YouthRoute><YouthApplications /></YouthRoute>} />
+        <Route path="/notifications" element={<YouthRoute><YouthNotifications /></YouthRoute>} />
+        <Route path="/profile" element={<YouthRoute><YouthProfile /></YouthRoute>} />
+        <Route path="/youth/profile" element={<YouthRoute><YouthProfile /></YouthRoute>} />
+        <Route path="/settings" element={<YouthRoute><YouthSettings /></YouthRoute>} />
+        <Route path="/youth/settings" element={<YouthRoute><YouthSettings /></YouthRoute>} />
+        <Route path="/account" element={<YouthRoute><YouthAccount /></YouthRoute>} />
+        <Route path="/youth/account" element={<YouthRoute><YouthAccount /></YouthRoute>} />
+        <Route path="/quick-access" element={<YouthRoute><YouthQuickAccess /></YouthRoute>} />
+        <Route path="/youth/quick-access" element={<YouthRoute><YouthQuickAccess /></YouthRoute>} />
+        <Route path="/preferences" element={<YouthRoute><Preferences /></YouthRoute>} />
+        <Route path="/youth/preferences" element={<YouthRoute><Preferences /></YouthRoute>} />
 
-      {/* Organisation */}
-      <Route path="/org/dashboard" element={<OrgRoute><OrgDashboard /></OrgRoute>} />
-      <Route path="/org/analytics" element={<OrgRoute><CourseAnalytics /></OrgRoute>} />
-      <Route path="/org/courses" element={<OrgRoute><OrgCourses /></OrgRoute>} />
-      <Route path="/org/courses/new" element={<OrgRoute><OrgCourseForm /></OrgRoute>} />
-      <Route path="/org/courses/:id" element={<OrgRoute><OrgCourseDetail /></OrgRoute>} />
-      <Route path="/org/courses/:id/edit" element={<OrgRoute><OrgCourseForm /></OrgRoute>} />
-      <Route path="/org/applications" element={<OrgRoute><OrgApplications /></OrgRoute>} />
-      <Route path="/org/profile" element={<OrgRoute><OrgProfile /></OrgRoute>} />
-      <Route path="/org/settings" element={<OrgRoute><OrgSettings /></OrgRoute>} />
+        {/* Organisation */}
+        <Route path="/org/dashboard" element={<OrgRoute><OrgDashboard /></OrgRoute>} />
+        <Route path="/org/analytics" element={<OrgRoute><CourseAnalytics /></OrgRoute>} />
+        <Route path="/org/courses" element={<OrgRoute><OrgCourses /></OrgRoute>} />
+        <Route path="/org/courses/new" element={<OrgRoute><OrgCourseForm /></OrgRoute>} />
+        <Route path="/org/courses/:id" element={<OrgRoute><OrgCourseDetail /></OrgRoute>} />
+        <Route path="/org/courses/:id/edit" element={<OrgRoute><OrgCourseForm /></OrgRoute>} />
+        <Route path="/org/applications" element={<OrgRoute><OrgApplications /></OrgRoute>} />
+        <Route path="/org/profile" element={<OrgRoute><OrgProfile /></OrgRoute>} />
+        <Route path="/org/settings" element={<OrgRoute><OrgSettings /></OrgRoute>} />
 
-      {/* Admin */}
-      <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/admin/organisations" element={<AdminRoute><AdminOrganisations /></AdminRoute>} />
-      <Route path="/admin/courses" element={<AdminRoute><AdminCourses /></AdminRoute>} />
-      <Route path="/admin/courses/:id" element={<AdminRoute><AdminCourseDetail /></AdminRoute>} />
-      <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
-      <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
-      <Route path="/admin/updates" element={<AdminRoute><AdminUpdates /></AdminRoute>} />
-      <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
-      <Route path="/org/notifications" element={<OrgRoute><OrgNotifications /></OrgRoute>} />
+        {/* Admin */}
+        <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+        <Route path="/admin/organisations" element={<AdminRoute><AdminOrganisations /></AdminRoute>} />
+        <Route path="/admin/courses" element={<AdminRoute><AdminCourses /></AdminRoute>} />
+        <Route path="/admin/courses/:id" element={<AdminRoute><AdminCourseDetail /></AdminRoute>} />
+        <Route path="/admin/users" element={<AdminRoute><AdminUsers /></AdminRoute>} />
+        <Route path="/admin/notifications" element={<AdminRoute><AdminNotifications /></AdminRoute>} />
+        <Route path="/admin/updates" element={<AdminRoute><AdminUpdates /></AdminRoute>} />
+        <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
+        <Route path="/org/notifications" element={<OrgRoute><OrgNotifications /></OrgRoute>} />
 
-      {/* Organisation impact */}
-<Route path="/org/impact" element={<OrgRoute><Impact /></OrgRoute>} />
-<Route path="/org/courses/:id/outcomes" element={<OrgRoute><CourseOutcomes /></OrgRoute>} />
+        {/* Organisation impact */}
+        <Route path="/org/impact" element={<OrgRoute><Impact /></OrgRoute>} />
+        <Route path="/org/courses/:id/outcomes" element={<OrgRoute><CourseOutcomes /></OrgRoute>} />
 
-{/* Youth outcome form */}
-<Route path="/outcomes" element={<YouthRoute><OutcomeForm /></YouthRoute>} />
-    </Routes>
+        {/* Youth outcome form */}
+        <Route path="/outcomes" element={<YouthRoute><OutcomeForm /></YouthRoute>} />
+      </Routes>
+    </>
   );
 }
 
