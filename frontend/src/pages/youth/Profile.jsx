@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
@@ -28,7 +28,7 @@ const YouthProfile = () => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [photoFailed, setPhotoFailed] = useState(false);
+  const [failedPhotoSrc, setFailedPhotoSrc] = useState('');
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [editForm, setEditForm] = useState({ username: '', bio: '' });
@@ -43,7 +43,7 @@ const YouthProfile = () => {
   const [followingCount, setFollowingCount] = useState(0);
   const photoInputRef = useRef(null);
 
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     try {
       const res = await getYouthProfile();
       setProfile(res.data);
@@ -87,9 +87,11 @@ const YouthProfile = () => {
       setDraftReady(true);
       setLoading(false);
     }
-  };
+  }, [updateUser]);
 
-  useEffect(() => { fetchProfile(); }, []);
+  useEffect(() => {
+    void Promise.resolve().then(fetchProfile);
+  }, [fetchProfile]);
 
   useEffect(() => {
     if (!draftReady || !draftKey || !editMode) return undefined;
@@ -256,11 +258,8 @@ const YouthProfile = () => {
     if (!version) return profile.photo;
     const separator = profile.photo.includes('?') ? '&' : '?';
     return `${profile.photo}${separator}v=${version}`;
-  }, [profile?.photo, profile?.updatedAt]);
-
-  useEffect(() => {
-    setPhotoFailed(false);
-  }, [profile?.photo]);
+  }, [profile]);
+  const resolvedPhotoSrc = resolveImageUrl(photoVersionedSrc);
 
   if (loading) return <Loader />;
 
@@ -357,11 +356,11 @@ const YouthProfile = () => {
                   title="View profile image"
                   style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
                 >
-                  {profile?.photo && !photoFailed ? (
+                  {profile?.photo && failedPhotoSrc !== resolvedPhotoSrc ? (
                     <img
-                      src={resolveImageUrl(photoVersionedSrc)}
+                      src={resolvedPhotoSrc}
                       alt={profile.fullName}
-                      onError={() => setPhotoFailed(true)}
+                      onError={() => setFailedPhotoSrc(resolvedPhotoSrc)}
                       style={{
                         width: '128px',
                         height: '128px',
@@ -719,10 +718,11 @@ const YouthProfile = () => {
                   textAlign: 'center'
                 }}
               >
-                {profile?.photo && !photoFailed ? (
+                {profile?.photo && failedPhotoSrc !== resolvedPhotoSrc ? (
                   <img
-                    src={resolveImageUrl(photoVersionedSrc)}
+                    src={resolvedPhotoSrc}
                     alt={profile?.fullName || 'Profile photo'}
+                    onError={() => setFailedPhotoSrc(resolvedPhotoSrc)}
                     style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }}
                   />
                 ) : (

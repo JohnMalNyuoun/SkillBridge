@@ -17,7 +17,7 @@ const OrgProfile = () => {
   const [logoUploading, setLogoUploading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [photoFailed, setPhotoFailed] = useState(false);
+  const [failedLogoSrc, setFailedLogoSrc] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [draftKey, setDraftKey] = useState('');
   const [draftReady, setDraftReady] = useState(false);
@@ -44,6 +44,7 @@ const OrgProfile = () => {
     const separator = profile.logo.includes('?') ? '&' : '?';
     return `${profile.logo}${separator}v=${version}`;
   }, [profile?.logo, profile?.updatedAt]);
+  const resolvedLogoSrc = resolveImageUrl(logoSrc);
 
   const orgHandle = useMemo(() => {
     const raw = (profile?.name || 'organisation').trim().toLowerCase();
@@ -124,10 +125,6 @@ const OrgProfile = () => {
 
     return () => clearTimeout(timeout);
   }, [draftKey, draftReady, form, isEditing]);
-
-  useEffect(() => {
-    setPhotoFailed(false);
-  }, [profile?.logo]);
 
   const handleChange = (e) => {
     setForm((current) => ({
@@ -226,7 +223,6 @@ const OrgProfile = () => {
         logo: nextLogo,
         updatedAt: new Date().toISOString()
       }));
-      setPhotoFailed(false);
       setNotice('Profile image updated successfully.');
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to upload profile image');
@@ -324,11 +320,11 @@ const OrgProfile = () => {
               />
 
               <div style={{ position: 'relative', width: '72px', height: '72px', flexShrink: 0 }}>
-                {logoSrc && !photoFailed ? (
+                {logoSrc && failedLogoSrc !== resolvedLogoSrc ? (
                   <img
-                    src={resolveImageUrl(logoSrc)}
+                    src={resolvedLogoSrc}
                     alt={profile.name}
-                    onError={() => setPhotoFailed(true)}
+                    onError={() => setFailedLogoSrc(resolvedLogoSrc)}
                     style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--fb-blue)' }}
                   />
                 ) : (

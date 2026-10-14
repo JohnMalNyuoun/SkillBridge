@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
@@ -25,7 +25,7 @@ const Courses = () => {
   const [commentingCourseId, setCommentingCourseId] = useState('');
   const [filters, setFilters] = useState({ search: '' });
 
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
       const params = {};
@@ -44,9 +44,11 @@ const Courses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.search]);
 
-  useEffect(() => { fetchCourses(); }, [filters]);
+  useEffect(() => {
+    void Promise.resolve().then(fetchCourses);
+  }, [fetchCourses]);
 
   const profileImageSrc = useMemo(() => {
     if (!user?.photo) return '';

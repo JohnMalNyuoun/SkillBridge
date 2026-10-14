@@ -6,144 +6,53 @@ import useAuth from '../../hooks/useAuth';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import {
   getYouthProfile,
-  updateYouthProfile,
-  updateYouthPhoto,
   updateYouthTheme
 } from '../../services/profileService';
 
-const cardStyle = {
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-color)',
-  borderRadius: '12px',
-  padding: '14px'
-};
-
 const YouthSettings = () => {
   const navigate = useNavigate();
-  const { updateUser, logout } = useAuth();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [photoFailed, setPhotoFailed] = useState(false);
+  const [failedPhotoSrc, setFailedPhotoSrc] = useState('');
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
-  const [localPhotoPreview, setLocalPhotoPreview] = useState('');
-  const [showProfileCard, setShowProfileCard] = useState(false);
-
-  const [publicForm, setPublicForm] = useState({
-    fullName: '',
-    username: '',
-    bio: ''
-  });
-  const [newPhoto, setNewPhoto] = useState(null);
 
   const [preferences, setPreferences] = useState({
     theme: 'light'
   });
 
-  const loadProfile = async () => {
-    try {
-      const res = await getYouthProfile();
-      setProfile(res.data);
-      setPublicForm({
-        fullName: res.data.fullName || '',
-        username: res.data.username || '',
-        bio: res.data.bio || ''
-      });
-      setPreferences({
-        theme: res.data.theme || 'light'
-      });
-      document.documentElement.setAttribute('data-theme', res.data.theme || 'light');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load menu');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadProfile();
+    let active = true;
+    void Promise.resolve()
+      .then(() => getYouthProfile())
+      .then((res) => {
+        if (!active) return;
+        setProfile(res.data);
+        setPreferences({ theme: res.data.theme || 'light' });
+        document.documentElement.setAttribute('data-theme', res.data.theme || 'light');
+      })
+      .catch((err) => {
+        if (active) setError(err.response?.data?.message || 'Failed to load menu');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  useEffect(() => {
-    setPhotoFailed(false);
-  }, [profile?.photo]);
-
-  useEffect(() => {
-    if (!newPhoto) {
-      setLocalPhotoPreview('');
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(newPhoto);
-    setLocalPhotoPreview(objectUrl);
-
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [newPhoto]);
-
   const profilePhotoSrc = useMemo(() => {
-    if (localPhotoPreview) return localPhotoPreview;
     if (!profile?.photo) return '';
     const version = profile?.updatedAt ? encodeURIComponent(profile.updatedAt) : '';
     if (!version) return profile.photo;
     const separator = profile.photo.includes('?') ? '&' : '?';
     return `${profile.photo}${separator}v=${version}`;
-  }, [localPhotoPreview, profile?.photo, profile?.updatedAt]);
-
-  const savePublicProfile = async () => {
-    setError('');
-    setNotice('');
-    try {
-      const profilePayload = {
-        fullName: publicForm.fullName,
-        bio: publicForm.bio,
-        ...(publicForm.username.trim() ? { username: publicForm.username } : {})
-      };
-
-      if (newPhoto) {
-        setPhotoFailed(false);
-        const photoFormData = new FormData();
-        photoFormData.append('photo', newPhoto);
-        const photoRes = await updateYouthPhoto(photoFormData);
-        const newPhotoUrl =
-          photoRes?.data?.photo
-          || photoRes?.photo
-          || photoRes?.data?.data?.photo;
-
-        if (newPhotoUrl) {
-          updateUser({ photo: newPhotoUrl });
-          setProfile((current) => ({
-            ...(current || {}),
-            ...publicForm,
-            photo: newPhotoUrl,
-            updatedAt: new Date().toISOString()
-          }));
-          setPhotoFailed(false);
-        } else {
-          throw new Error('Photo uploaded but no image URL was returned by the server.');
-        }
-
-        setNewPhoto(null);
-      }
-
-      const profileRes = await updateYouthProfile(profilePayload);
-      const updatedProfile = profileRes?.data || {};
-
-      setProfile((current) => ({
-        ...(current || {}),
-        ...updatedProfile,
-        updatedAt: new Date().toISOString()
-      }));
-      updateUser({
-        fullName: updatedProfile.fullName || publicForm.fullName,
-        ...(updatedProfile.username ? { username: updatedProfile.username } : {})
-      });
-
-      setNotice('Public profile updated successfully.');
-    } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Failed to update public profile');
-    }
-  };
+  }, [profile?.photo, profile?.updatedAt]);
+  const resolvedProfilePhotoSrc = resolveImageUrl(profilePhotoSrc);
 
   const toggleTheme = async () => {
     setError('');
@@ -207,11 +116,11 @@ const YouthSettings = () => {
               transition: 'none'
             }}
           >
-            {profilePhotoSrc && !photoFailed ? (
+            {profilePhotoSrc && failedPhotoSrc !== resolvedProfilePhotoSrc ? (
               <img
-                src={resolveImageUrl(profilePhotoSrc)}
+                src={resolvedProfilePhotoSrc}
                 alt={profile?.fullName}
-                onError={() => setPhotoFailed(true)}
+                onError={() => setFailedPhotoSrc(resolvedProfilePhotoSrc)}
                 style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--fb-blue)' }}
               />
             ) : (
@@ -374,10 +283,11 @@ const YouthSettings = () => {
               textAlign: 'center'
             }}
           >
-            {profile?.photo && !photoFailed ? (
+            {profile?.photo && failedPhotoSrc !== resolvedProfilePhotoSrc ? (
               <img
-                src={resolveImageUrl(profilePhotoSrc)}
+                src={resolvedProfilePhotoSrc}
                 alt={profile?.fullName || 'Profile photo'}
+                onError={() => setFailedPhotoSrc(resolvedProfilePhotoSrc)}
                 style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '10px' }}
               />
             ) : (

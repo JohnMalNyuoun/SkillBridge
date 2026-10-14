@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
@@ -27,7 +27,7 @@ const Courses = () => {
   const [followingOnly, setFollowingOnly] = useState(false);
   const [followActionId, setFollowActionId] = useState('');
 
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     try {
       const res = await getOrgCourses();
       setCourses(res.data);
@@ -36,11 +36,11 @@ const Courses = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchCourses();
-  }, []);
+    void Promise.resolve().then(fetchCourses);
+  }, [fetchCourses]);
 
   const openDiscoverFeed = async () => {
     setActiveTab('discover');
