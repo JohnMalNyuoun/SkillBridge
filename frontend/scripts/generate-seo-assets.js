@@ -48,6 +48,10 @@ if (siteOrigin) {
       `<meta property="og:image" content="${siteOrigin}/skillbridge-logo.jpg" />`,
     )
     .replace(
+      '<meta name="twitter:image" content="/skillbridge-logo.jpg" />',
+      `<meta name="twitter:image" content="${siteOrigin}/skillbridge-logo.jpg" />`,
+    )
+    .replace(
       '</head>',
       `    <link rel="canonical" href="${siteOrigin}/" />\n    <meta property="og:url" content="${siteOrigin}/" />\n  </head>`,
     );

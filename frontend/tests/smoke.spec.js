@@ -122,6 +122,18 @@ test.describe("public app", () => {
       "content",
       "index, follow",
     );
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
+      "content",
+      `${new URL(page.url()).origin}/skillbridge-logo.jpg`,
+    );
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
+      "content",
+      `${new URL(page.url()).origin}/skillbridge-logo.jpg`,
+    );
+    await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
+      "content",
+      "SkillBridge logo",
+    );
     await expect(
       page.getByRole("link", { name: "SkillBridge home" }),
     ).toBeVisible();

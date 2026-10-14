@@ -61,9 +61,15 @@ const Seo = () => {
     setMetaContent('meta[name="description"]', { name: 'description' }, page.description);
     setMetaContent('meta[name="robots"]', { name: 'robots' }, 'index, follow');
     setMetaContent('meta[property="og:title"]', { property: 'og:title' }, page.title);
+    setMetaContent('meta[name="twitter:title"]', { name: 'twitter:title' }, page.title);
     setMetaContent(
       'meta[property="og:description"]',
       { property: 'og:description' },
+      page.description,
+    );
+    setMetaContent(
+      'meta[name="twitter:description"]',
+      { name: 'twitter:description' },
       page.description,
     );
     setMetaContent(
@@ -71,10 +77,25 @@ const Seo = () => {
       { property: 'og:url' },
       siteOrigin ? new URL(pathname, siteOrigin).href : window.location.href,
     );
+    const socialImageUrl = new URL(
+      '/skillbridge-logo.jpg',
+      siteOrigin || window.location.origin,
+    ).href;
     setMetaContent(
       'meta[property="og:image"]',
       { property: 'og:image' },
-      new URL('/skillbridge-logo.jpg', siteOrigin || window.location.origin).href,
+      socialImageUrl,
+    );
+    setMetaContent('meta[name="twitter:image"]', { name: 'twitter:image' }, socialImageUrl);
+    setMetaContent(
+      'meta[property="og:image:alt"]',
+      { property: 'og:image:alt' },
+      'SkillBridge logo',
+    );
+    setMetaContent(
+      'meta[name="twitter:image:alt"]',
+      { name: 'twitter:image:alt' },
+      'SkillBridge logo',
     );
 
     let canonical = document.head.querySelector('link[rel="canonical"]');
