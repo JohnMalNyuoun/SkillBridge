@@ -10,6 +10,7 @@ import {
   rejectApplicant
 } from '../../services/applicationService';
 import { getOrgCourses } from '../../services/courseService';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Applications = () => {
   const [applications, setApplications] = useState([]);
@@ -214,7 +215,7 @@ const Applications = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       {app.youth?.photo ? (
                         <img
-                          src={app.youth.photo}
+                          src={resolveImageUrl(app.youth.photo)}
                           alt={app.youth?.fullName || 'Youth'}
                           style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
                         />

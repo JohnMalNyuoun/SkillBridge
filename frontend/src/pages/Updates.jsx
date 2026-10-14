@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../services/api';
 import Loader from '../components/common/Loader';
 import ShareButton from '../components/common/ShareButton';
+import { resolveImageUrl } from '../utils/imageUrl';
 
 const stripEmoji = (str) =>
   str ? str.replace(/\p{Extended_Pictographic}/gu, '').replace(/\s{2,}/g, ' ').trim() : str;
@@ -166,7 +167,7 @@ const Updates = () => {
                 </p>
                 {b.image && (
                   <img
-                    src={b.image}
+                    src={resolveImageUrl(b.image)}
                     alt={b.title}
                     style={{
                       display: 'block',

@@ -41,6 +41,7 @@ const getAllCourses = async (req, res) => {
     }
 
     const courses = await Course.find(filter)
+      .select('+coverImage')
       .populate('organisation', 'name type location logo')
       .sort({ createdAt: -1 });
 
@@ -56,6 +57,7 @@ const getAllCourses = async (req, res) => {
 
     const enrichedCourses = courses.map((courseDoc) => {
       const course = courseDoc.toObject();
+      course.coverImage = courseDoc.coverImage || null;
       const engagement = engagementMap[course._id.toString()];
       const reactions = engagement?.reactions || [];
       const comments = engagement?.comments || [];

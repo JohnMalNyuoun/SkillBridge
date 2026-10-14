@@ -5,6 +5,7 @@ import Loader from '../../components/common/Loader';
 import { getOrgCourses } from '../../services/courseService';
 import { getOrgApplications } from '../../services/applicationService';
 import useAuth from '../../hooks/useAuth';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const CourseAnalytics = () => {
   const { user } = useAuth();
@@ -312,7 +313,7 @@ const CourseAnalytics = () => {
                   }}>
                     {item.youth?.photo ? (
                       <img
-                        src={item.youth.photo}
+                        src={resolveImageUrl(item.youth.photo)}
                         alt={item.youth?.fullName}
                         style={{
                           width: '48px',

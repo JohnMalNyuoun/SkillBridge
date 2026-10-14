@@ -35,6 +35,7 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(express.json());
+app.use('/api/images', require('./routes/images'));
 app.use(requestLogger);
 setupExpressRequestContext(posthog, app);
 

@@ -6,6 +6,7 @@ import ShareButton from '../../components/common/ShareButton';
 import { addCourseComment, getAllCourses, toggleCourseReaction } from '../../services/courseService';
 import { getMyApplications } from '../../services/applicationService';
 import { COURSE_CATEGORIES, DELIVERY_MODES } from '../../utils/constants';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Home = () => {
   const [courses, setCourses] = useState([]);
@@ -261,10 +262,7 @@ const Home = () => {
               const isFull = course.filledSlots >= course.totalSlots;
               const alreadyApplied = appliedCourseIds.has(course._id);
               const canApply = !alreadyApplied && !isDeadlinePassed && !isFull;
-              const rawCourseCover = typeof course.coverImage === 'string' ? course.coverImage.trim() : '';
-              const courseCoverImage = rawCourseCover.startsWith('//')
-                ? `https:${rawCourseCover}`
-                : rawCourseCover.replace(/^http:\/\//, 'https://');
+              const courseCoverImage = resolveImageUrl(course.coverImage);
 
               return (
                 <article
@@ -282,7 +280,7 @@ const Home = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                     {course.organisation?.logo ? (
                       <img
-                        src={course.organisation.logo.replace(/^http:\/\//, 'https://')}
+                        src={resolveImageUrl(course.organisation.logo)}
                         alt={course.organisation?.name || 'Organisation'}
                         style={{ width: '40px', height: '40px', borderRadius: '999px', objectFit: 'cover' }}
                       />
@@ -337,6 +335,10 @@ const Home = () => {
                         display: 'block',
                         width: 'calc(100% + 36px)',
                         margin: '0 -18px 12px',
+                        aspectRatio: '16 / 9',
+                        maxHeight: '520px',
+                        overflow: 'hidden',
+                        background: 'var(--bg-section-alt)',
                         textDecoration: 'none'
                       }}
                     >
@@ -345,10 +347,10 @@ const Home = () => {
                         alt={`${course.title} course cover`}
                         loading={index === 0 ? 'eager' : 'lazy'}
                         decoding="async"
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
                         style={{
                           width: '100%',
-                          height: 'auto',
-                          maxHeight: '520px',
+                          height: '100%',
                           objectFit: 'cover',
                           display: 'block'
                         }}

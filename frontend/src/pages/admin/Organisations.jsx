@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import Button from '../../components/common/Button';
 import api from '../../services/api';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Organisations = () => {
   const [organisations, setOrganisations] = useState([]);
@@ -180,7 +181,7 @@ const Organisations = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     {org.logo ? (
                       <img
-                        src={org.logo}
+                        src={resolveImageUrl(org.logo)}
                         alt={org.name}
                         style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover' }}
                       />

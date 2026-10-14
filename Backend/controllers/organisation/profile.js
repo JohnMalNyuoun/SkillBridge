@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const Organisation = require('../../models/Organisation');
 const { success, error } = require('../../utils/apiResponse');
-const { uploadImage } = require('../../services/cloudinaryImageService');
+const { deleteImage, uploadImage } = require('../../services/mongodbImageService');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
 
 // @desc    Get org profile
@@ -67,6 +67,7 @@ const updateProfile = async (req, res) => {
 // @route   PUT /api/org/profile/logo
 // @access  Organisation
 const updateLogo = async (req, res) => {
+  let uploadedLogo;
   try {
     const org = await Organisation.findById(req.user.id);
     if (!org) return error(res, 404, 'Organisation not found');
@@ -75,23 +76,35 @@ const updateLogo = async (req, res) => {
       const logoUrl = String(req.body.logoUrl).trim();
       if (!logoUrl) return error(res, 400, 'Invalid logo URL');
 
+      const previousLogo = org.logo;
       org.logo = logoUrl;
       await org.save();
+      await deleteImage(previousLogo).catch((err) => {
+        console.error('Failed to remove replaced MongoDB organisation logo:', err.message);
+      });
       return success(res, 200, 'Logo updated', { logo: org.logo });
     }
 
     if (!req.file) return error(res, 400, 'No logo uploaded');
 
-    org.logo = await uploadImage(req.file, [{ width: 400, height: 400, crop: 'fill' }]);
-    await org.save();
+    const previousLogo = org.logo;
+    uploadedLogo = await uploadImage(req.file);
+    org.logo = uploadedLogo;
+    try {
+      await org.save();
+    } catch (err) {
+      await deleteImage(uploadedLogo).catch((cleanupError) => {
+        console.error('Failed to remove unreferenced MongoDB organisation logo:', cleanupError.message);
+      });
+      throw err;
+    }
+    await deleteImage(previousLogo).catch((err) => {
+      console.error('Failed to remove replaced MongoDB organisation logo:', err.message);
+    });
 
     return success(res, 200, 'Logo updated', { logo: org.logo });
   } catch (err) {
-    console.error('❌ Organisation logo upload error:', {
-      message: err.message,
-      http_code: err.http_code,
-      status: err.status
-    });
+    console.error('Organisation logo upload error:', err.message);
     return error(res, err.statusCode || 500, err.message || 'Failed to upload logo');
   }
 };

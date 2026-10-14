@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import useAuth from '../../hooks/useAuth';
+import { resolveImageUrl } from '../../utils/imageUrl';
 import {
   getYouthProfile,
   updateYouthProfile,
@@ -16,10 +17,6 @@ const cardStyle = {
   borderRadius: '12px',
   padding: '14px'
 };
-
-const CLOUDINARY_CLOUD_NAME = 'dkxjwhxne';
-const CLOUDINARY_PROFILE_PRESET = 'Fursahub-profile';
-const CLOUDINARY_PROFILE_PRESET_FALLBACK = 'fursahub-courses';
 
 const YouthSettings = () => {
   const navigate = useNavigate();
@@ -105,43 +102,13 @@ const YouthSettings = () => {
 
       if (newPhoto) {
         setPhotoFailed(false);
-        const uploadWithPreset = async (preset) => {
-          const uploadFormData = new FormData();
-          uploadFormData.append('file', newPhoto);
-          uploadFormData.append('upload_preset', preset);
-
-          const cloudinaryResponse = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-            {
-              method: 'POST',
-              body: uploadFormData
-            }
-          );
-
-          const cloudinaryData = await cloudinaryResponse.json();
-          return { cloudinaryResponse, cloudinaryData };
-        };
-
-        let { cloudinaryResponse, cloudinaryData } = await uploadWithPreset(CLOUDINARY_PROFILE_PRESET);
-
-        if (!cloudinaryData?.secure_url) {
-          const fallbackResult = await uploadWithPreset(CLOUDINARY_PROFILE_PRESET_FALLBACK);
-          cloudinaryResponse = fallbackResult.cloudinaryResponse;
-          cloudinaryData = fallbackResult.cloudinaryData;
-        }
-
-        if (!cloudinaryResponse.ok || !cloudinaryData?.secure_url) {
-          throw new Error(cloudinaryData?.error?.message || 'Cloudinary upload failed');
-        }
-
-        profilePayload.photo = cloudinaryData.secure_url;
-
-        const photoRes = await updateYouthPhoto({ photoUrl: cloudinaryData.secure_url });
+        const photoFormData = new FormData();
+        photoFormData.append('photo', newPhoto);
+        const photoRes = await updateYouthPhoto(photoFormData);
         const newPhotoUrl =
           photoRes?.data?.photo
           || photoRes?.photo
-          || photoRes?.data?.data?.photo
-          || cloudinaryData.secure_url;
+          || photoRes?.data?.data?.photo;
 
         if (newPhotoUrl) {
           updateUser({ photo: newPhotoUrl });
@@ -242,7 +209,7 @@ const YouthSettings = () => {
           >
             {profilePhotoSrc && !photoFailed ? (
               <img
-                src={profilePhotoSrc}
+                src={resolveImageUrl(profilePhotoSrc)}
                 alt={profile?.fullName}
                 onError={() => setPhotoFailed(true)}
                 style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, border: '2px solid var(--fb-blue)' }}
@@ -409,7 +376,7 @@ const YouthSettings = () => {
           >
             {profile?.photo && !photoFailed ? (
               <img
-                src={profilePhotoSrc}
+                src={resolveImageUrl(profilePhotoSrc)}
                 alt={profile?.fullName || 'Profile photo'}
                 style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '10px' }}
               />

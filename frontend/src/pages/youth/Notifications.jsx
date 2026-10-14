@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import Button from '../../components/common/Button';
+import { resolveImageUrl } from '../../utils/imageUrl';
 import {
   getNotifications,
   markAsRead,
@@ -265,7 +266,7 @@ const Notifications = () => {
                   </p>
                   {notification.image && (
                     <img
-                      src={notification.image}
+                      src={resolveImageUrl(notification.image)}
                       alt={notification.title}
                       style={{
                         display: 'block',

@@ -13,6 +13,7 @@ import {
 } from '../../services/courseService';
 import { followTarget, unfollowTarget } from '../../services/followService';
 import { COURSE_CATEGORIES } from '../../utils/constants';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);
@@ -326,10 +327,7 @@ const Courses = () => {
               </div>
             ) : (
               visibleDiscoverCourses.map((course, index) => {
-                const rawCourseCover = typeof course.coverImage === 'string' ? course.coverImage.trim() : '';
-                const courseCover = rawCourseCover.startsWith('//')
-                  ? `https:${rawCourseCover}`
-                  : rawCourseCover.replace(/^http:\/\//, 'https://');
+                const courseCover = resolveImageUrl(course.coverImage);
                 const organisationId = course.organisation?._id;
 
                 return (
@@ -345,7 +343,7 @@ const Courses = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                       {course.organisation?.logo ? (
                         <img
-                          src={course.organisation.logo.replace(/^http:\/\//, 'https://')}
+                          src={resolveImageUrl(course.organisation.logo)}
                           alt={course.organisation.name || 'Organisation'}
                           style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover' }}
                         />
@@ -497,10 +495,7 @@ const Courses = () => {
 
                   <div>
                     {section.items.map((course, idx) => {
-                      const rawCardImage = typeof course.coverImage === 'string' ? course.coverImage.trim() : '';
-                      const cardImage = rawCardImage.startsWith('//')
-                        ? `https:${rawCardImage}`
-                        : rawCardImage.replace(/^http:\/\//, 'https://');
+                      const cardImage = resolveImageUrl(course.coverImage);
                       const isPublic = course.status === 'published'
                         && new Date(course.applicationDeadline) >= new Date();
                       return (

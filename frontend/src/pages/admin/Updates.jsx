@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import api from '../../services/api';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const AdminUpdates = () => {
   const navigate = useNavigate();
@@ -334,7 +335,7 @@ const AdminUpdates = () => {
                 </p>
                 {b.image && (
                   <img
-                    src={b.image}
+                    src={resolveImageUrl(b.image)}
                     alt={b.title}
                     style={{
                       marginTop: '10px',

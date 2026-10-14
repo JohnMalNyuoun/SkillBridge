@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import Button from '../../components/common/Button';
 import api from '../../services/api';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -122,7 +123,7 @@ const Users = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {user.photo ? (
                     <img
-                      src={user.photo}
+                      src={resolveImageUrl(user.photo)}
                       alt={user.fullName || 'Youth'}
                       style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover' }}
                     />

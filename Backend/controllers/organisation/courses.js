@@ -2,7 +2,7 @@ const Course = require('../../models/course');
 const Follow = require('../../models/Follow');
 const mongoose = require('mongoose');
 const User = require('../../models/Users');
-const { uploadImage } = require('../../services/cloudinaryImageService');
+const { deleteImage, uploadImage } = require('../../services/mongodbImageService');
 const { notify } = require('../../services/notificationService');
 const { success, error } = require('../../utils/apiResponse');
 const posthog = require('../../config/posthog');
@@ -24,6 +24,7 @@ const parseQuestionsPayload = (questions) => {
 // @route   POST /api/org/courses
 // @access  Organisation
 const createCourse = async (req, res) => {
+  let coverImage;
   try {
     const {
       title,
@@ -76,7 +77,7 @@ const createCourse = async (req, res) => {
       return error(res, 400, 'Maximum age must be a valid number');
     }
 
-    const coverImage = await uploadImage(req.file, [{ width: 1200, height: 675, crop: 'fill' }]);
+    coverImage = await uploadImage(req.file);
 
     const course = await Course.create({
       organisation: req.user.id,
@@ -114,6 +115,9 @@ const createCourse = async (req, res) => {
     return success(res, 201, 'Course created successfully', course);
 
   } catch (err) {
+    await deleteImage(coverImage).catch((cleanupError) => {
+      console.error('Failed to remove unreferenced MongoDB course image:', cleanupError.message);
+    });
     return error(res, err.statusCode || 500, err.message);
   }
 };
@@ -193,6 +197,7 @@ const getOrgCourse = async (req, res) => {
 // @route   PUT /api/org/courses/:id
 // @access  Organisation
 const updateCourse = async (req, res) => {
+  let uploadedCoverImage;
   try {
     const {
       title,
@@ -266,8 +271,10 @@ const updateCourse = async (req, res) => {
     if (googleFormLink !== undefined) {
       updateData.googleFormLink = googleFormLink || null;
     }
+    const previousCoverImage = course.coverImage;
     if (req.file) {
-      updateData.coverImage = await uploadImage(req.file, [{ width: 1200, height: 675, crop: 'fill' }]);
+      uploadedCoverImage = await uploadImage(req.file);
+      updateData.coverImage = uploadedCoverImage;
     }
 
     const updatedCourse = await Course.findByIdAndUpdate(
@@ -275,10 +282,18 @@ const updateCourse = async (req, res) => {
       { $set: updateData },
       { new: true, runValidators: true }
     );
+    if (uploadedCoverImage) {
+      await deleteImage(previousCoverImage).catch((err) => {
+        console.error('Failed to remove replaced MongoDB course image:', err.message);
+      });
+    }
 
     return success(res, 200, 'Course updated', updatedCourse);
 
   } catch (err) {
+    await deleteImage(uploadedCoverImage).catch((cleanupError) => {
+      console.error('Failed to remove unreferenced MongoDB course image:', cleanupError.message);
+    });
     return error(res, err.statusCode || 500, err.message);
   }
 };

@@ -6,6 +6,7 @@ import ShareButton from '../../components/common/ShareButton';
 import api from '../../services/api';
 import * as followService from '../../services/followService';
 import useAuth from '../../hooks/useAuth';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const PublicOrganisationProfile = () => {
   const { id } = useParams();
@@ -105,7 +106,7 @@ const PublicOrganisationProfile = () => {
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', marginBottom: '16px' }}>
               {profile?.logo ? (
                 <img
-                  src={profile.logo}
+                  src={resolveImageUrl(profile.logo)}
                   alt={profile.name}
                   style={{ width: '76px', height: '76px', borderRadius: '14px', objectFit: 'cover' }}
                 />

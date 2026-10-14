@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import Navbar from "../../components/common/Navbar";
 import Loader from "../../components/common/Loader";
 import Button from "../../components/common/Button";
+import { resolveImageUrl } from "../../utils/imageUrl";
 import {
   getImpactDashboard,
   markCompletion,
@@ -474,7 +475,7 @@ const Impact = () => {
                     >
                       {app.youth?.photo ? (
                         <img
-                          src={app.youth.photo}
+                          src={resolveImageUrl(app.youth.photo)}
                           alt={app.youth?.fullName || "Youth"}
                           style={{
                             width: "38px",

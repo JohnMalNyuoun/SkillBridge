@@ -3,53 +3,16 @@ const Broadcast = require('../../models/Broadcast');
 const Notification = require('../../models/Notification');
 const User = require('../../models/Users');
 const Organisation = require('../../models/Organisation');
-const cloudinary = require('../../config/cloudinary');
+const { deleteImage, uploadImage } = require('../../services/mongodbImageService');
 const { success, error } = require('../../utils/apiResponse');
 const posthog = require('../../config/posthog');
-
-const uploadBroadcastImage = async (file) => {
-  if (!file) return null;
-
-  if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
-    throw new Error('Cloudinary is not configured on the server.');
-  }
-
-  const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-  const baseOptions = {
-    resource_type: 'image',
-    folder: 'fursahub/broadcasts',
-    transformation: [{ width: 1200, crop: 'limit' }]
-  };
-
-  try {
-    const uploadResult = await cloudinary.uploader.upload(dataUri, {
-      ...baseOptions,
-      upload_preset: 'fursahub-courses',
-      type: 'upload'
-    });
-    return uploadResult.secure_url;
-  } catch (err) {
-    if (err?.http_code === 403 || (err?.message || '').includes('status code - 403')) {
-      try {
-        const uploadResult = await cloudinary.uploader.upload(dataUri, baseOptions);
-        return uploadResult.secure_url;
-      } catch (signedErr) {
-        throw new Error(`Image upload failed: ${signedErr.message}`);
-      }
-    }
-    throw new Error(`Image upload failed: ${err.message}`);
-  }
-};
-
-const shouldIgnoreImageFailure = (err) => {
-  const msg = err?.message || '';
-  return msg.includes('status code - 403') || msg.includes('Cloudinary is not configured');
-};
 
 // @desc    Create an admin broadcast and fan out to all recipients
 // @route   POST /api/admin/broadcasts
 // @access  Admin
 const createBroadcast = async (req, res) => {
+  let image = null;
+  let broadcastCreated = false;
   try {
     const { title, message, audience } = req.body;
 
@@ -61,16 +24,7 @@ const createBroadcast = async (req, res) => {
       ? audience
       : 'all';
 
-    let image = null;
-    try {
-      image = await uploadBroadcastImage(req.file);
-    } catch (uploadErr) {
-      if (!shouldIgnoreImageFailure(uploadErr)) {
-        return error(res, 400, uploadErr.message);
-      }
-      console.warn('Broadcast image upload skipped:', uploadErr.message);
-      image = null;
-    }
+    image = await uploadImage(req.file);
 
     const broadcast = await Broadcast.create({
       title: title.trim(),
@@ -79,6 +33,7 @@ const createBroadcast = async (req, res) => {
       audience: normalizedAudience,
       createdBy: req.user?.id
     });
+    broadcastCreated = true;
 
     const recipients = [];
 
@@ -135,7 +90,12 @@ const createBroadcast = async (req, res) => {
     return success(res, 201, 'Broadcast sent', broadcast);
 
   } catch (err) {
-    return error(res, 500, err.message);
+    if (!broadcastCreated) {
+      await deleteImage(image).catch((cleanupError) => {
+        console.error('Failed to remove unreferenced MongoDB broadcast image:', cleanupError.message);
+      });
+    }
+    return error(res, err.statusCode || 500, err.message);
   }
 };
 
@@ -166,6 +126,9 @@ const deleteBroadcast = async (req, res) => {
       reference: broadcast._id
     });
     await broadcast.deleteOne();
+    await deleteImage(broadcast.image).catch((err) => {
+      console.error('Failed to remove deleted broadcast image from MongoDB:', err.message);
+    });
 
     return success(res, 200, 'Broadcast deleted');
   } catch (err) {

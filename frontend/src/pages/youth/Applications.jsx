@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import Button from '../../components/common/Button';
 import { getMyApplications, withdrawApplication } from '../../services/applicationService';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const statusConfig = {
   submitted: {
@@ -174,7 +175,7 @@ const Applications = () => {
                     }}>
                       {app.organisation?.logo ? (
                         <img
-                          src={app.organisation.logo}
+                          src={resolveImageUrl(app.organisation.logo)}
                           alt={app.organisation.name}
                           style={{ width: '42px', height: '42px', objectFit: 'cover', borderRadius: '10px' }}
                         />

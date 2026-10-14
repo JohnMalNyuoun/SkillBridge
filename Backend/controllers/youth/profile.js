@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../../models/Users');
 const { success, error } = require('../../utils/apiResponse');
-const { uploadImage } = require('../../services/cloudinaryImageService');
+const { deleteImage, uploadImage } = require('../../services/mongodbImageService');
 const { sendEmail, hasEmailConfig } = require('../../services/emailService');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
 const NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
@@ -170,28 +170,41 @@ const changeFullName = async (req, res) => {
 // @route   PUT /api/youth/profile/photo
 // @access  Youth
 const updatePhoto = async (req, res) => {
+  let uploadedPhoto;
   try {
     const user = await User.findById(req.user.id);
     if (!user) return error(res, 404, 'User not found');
 
     if (req.body?.photoUrl) {
+      const previousPhoto = user.photo;
       user.photo = req.body.photoUrl;
       await user.save();
+      await deleteImage(previousPhoto).catch((err) => {
+        console.error('Failed to remove replaced MongoDB profile image:', err.message);
+      });
       return success(res, 200, 'Photo updated', { photo: user.photo });
     }
 
     if (!req.file) return error(res, 400, 'No photo uploaded');
 
-    user.photo = await uploadImage(req.file, [{ width: 400, height: 400, crop: 'fill' }]);
-    await user.save();
+    const previousPhoto = user.photo;
+    uploadedPhoto = await uploadImage(req.file);
+    user.photo = uploadedPhoto;
+    try {
+      await user.save();
+    } catch (err) {
+      await deleteImage(uploadedPhoto).catch((cleanupError) => {
+        console.error('Failed to remove unreferenced MongoDB profile image:', cleanupError.message);
+      });
+      throw err;
+    }
+    await deleteImage(previousPhoto).catch((err) => {
+      console.error('Failed to remove replaced MongoDB profile image:', err.message);
+    });
 
     return success(res, 200, 'Photo updated', { photo: user.photo });
   } catch (err) {
-    console.error('❌ Upload error:', {
-      message: err.message,
-      http_code: err.http_code,
-      status: err.status
-    });
+    console.error('Profile photo upload error:', err.message);
     return error(res, err.statusCode || 500, err.message);
   }
 };

@@ -6,10 +6,8 @@ import ShareButton from '../../components/common/ShareButton';
 import { getOrgProfile, updateOrgLogo, updateOrgProfile } from '../../services/profileService';
 import * as followService from '../../services/followService';
 import { useLanguage } from '../../hooks/useLanguage';
-
-const CLOUDINARY_CLOUD_NAME = 'dkxjwhxne';
-const CLOUDINARY_PROFILE_PRESET = 'Fursahub-profile';
-const CLOUDINARY_PROFILE_PRESET_FALLBACK = 'fursahub-courses';
+import { resolveImageUrl } from '../../utils/imageUrl';
+import { clearFormDraft, loadFormDraft, saveFormDraft } from '../../utils/formDraftStorage';
 
 const OrgProfile = () => {
   const navigate = useNavigate();
@@ -21,6 +19,9 @@ const OrgProfile = () => {
   const [notice, setNotice] = useState('');
   const [photoFailed, setPhotoFailed] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [draftKey, setDraftKey] = useState('');
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
   const [followers, setFollowers] = useState([]);
   const [following, setFollowing] = useState([]);
   const [followersTotal, setFollowersTotal] = useState(0);
@@ -51,26 +52,43 @@ const OrgProfile = () => {
   }, [profile?.name]);
 
   useEffect(() => {
+    let active = true;
     const fetchProfile = async () => {
       try {
         const res = await getOrgProfile();
         setProfile(res.data);
-        setForm({
+        const profileForm = {
           name: res.data?.name || '',
           description: res.data?.description || '',
           bio: res.data?.bio || '',
           phoneNumber: res.data?.phoneNumber || '',
           location: res.data?.location || '',
           website: res.data?.website || ''
-        });
+        };
+        setForm(profileForm);
 
         const orgId = res.data?._id || res.data?.id;
         if (orgId) {
+          const key = `organisation-profile:${orgId}`;
+          setDraftKey(key);
+          try {
+            const draft = await loadFormDraft(key);
+            if (!active) return;
+            if (draft) {
+              setForm({ ...profileForm, ...draft.data });
+              setIsEditing(true);
+              setDraftStatus('Your saved profile edits were restored. They are stored only in this browser.');
+            }
+          } catch (err) {
+            if (active) setDraftStatus(err.message || 'Could not check for a saved profile draft.');
+          }
+
           const [followersRes, followingRes] = await Promise.all([
             followService.getFollowers(orgId, 'Organisation', 6, 0),
             followService.getFollowing(orgId, 6, 0)
           ]);
 
+          if (!active) return;
           setFollowers(followersRes?.data?.data?.followers || []);
           setFollowersTotal(followersRes?.data?.data?.total || 0);
 
@@ -79,14 +97,33 @@ const OrgProfile = () => {
           setFollowingTotal(followingRes?.data?.data?.total || 0);
         }
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load profile');
+        if (active) setError(err.response?.data?.message || 'Failed to load profile');
       } finally {
-        setLoading(false);
+        if (active) {
+          setDraftReady(true);
+          setLoading(false);
+        }
       }
     };
 
     fetchProfile();
+    return () => {
+      active = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (!draftReady || !draftKey || !isEditing) return undefined;
+
+    const timeout = setTimeout(() => {
+      setDraftStatus('Saving your profile edits in this browser...');
+      saveFormDraft(draftKey, form)
+        .then(() => setDraftStatus('Profile edits saved in this browser.'))
+        .catch((err) => setDraftStatus(err.message || 'Could not save a local profile draft.'));
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [draftKey, draftReady, form, isEditing]);
 
   useEffect(() => {
     setPhotoFailed(false);
@@ -99,7 +136,7 @@ const OrgProfile = () => {
     }));
   };
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = async () => {
     setForm({
       name: profile?.name || '',
       description: profile?.description || '',
@@ -110,6 +147,12 @@ const OrgProfile = () => {
     });
     setError('');
     setIsEditing(false);
+    try {
+      if (draftKey) await clearFormDraft(draftKey);
+      setDraftStatus('');
+    } catch (err) {
+      setDraftStatus(err.message || 'Could not discard the local profile draft.');
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -147,6 +190,12 @@ const OrgProfile = () => {
       });
       setNotice('Profile updated successfully.');
       setIsEditing(false);
+      try {
+        if (draftKey) await clearFormDraft(draftKey);
+        setDraftStatus('');
+      } catch (err) {
+        setDraftStatus(`Profile saved, but the local draft could not be cleared: ${err.message}`);
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile');
     } finally {
@@ -163,37 +212,10 @@ const OrgProfile = () => {
     setLogoUploading(true);
 
     try {
-      const uploadWithPreset = async (preset) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('upload_preset', preset);
-
-        const cloudinaryResponse = await fetch(
-          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-          {
-            method: 'POST',
-            body: formData
-          }
-        );
-
-        const cloudinaryData = await cloudinaryResponse.json();
-        return { cloudinaryResponse, cloudinaryData };
-      };
-
-      let { cloudinaryResponse, cloudinaryData } = await uploadWithPreset(CLOUDINARY_PROFILE_PRESET);
-
-      if (!cloudinaryData?.secure_url) {
-        const fallbackResult = await uploadWithPreset(CLOUDINARY_PROFILE_PRESET_FALLBACK);
-        cloudinaryResponse = fallbackResult.cloudinaryResponse;
-        cloudinaryData = fallbackResult.cloudinaryData;
-      }
-
-      if (!cloudinaryResponse.ok || !cloudinaryData?.secure_url) {
-        throw new Error(cloudinaryData?.error?.message || 'Cloudinary upload failed');
-      }
-
-      const res = await updateOrgLogo({ logoUrl: cloudinaryData.secure_url });
-      const nextLogo = res?.data?.logo || res?.logo || cloudinaryData.secure_url;
+      const formData = new FormData();
+      formData.append('logo', file);
+      const res = await updateOrgLogo(formData);
+      const nextLogo = res?.data?.logo || res?.logo;
 
       if (!nextLogo) {
         throw new Error('Logo upload succeeded but no image URL was returned');
@@ -278,6 +300,12 @@ const OrgProfile = () => {
           </div>
         )}
 
+        {draftStatus && (
+          <p role="status" style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0 0 12px' }}>
+            {draftStatus}
+          </p>
+        )}
+
         {!error && (
           <div>
             <div style={{
@@ -298,7 +326,7 @@ const OrgProfile = () => {
               <div style={{ position: 'relative', width: '72px', height: '72px', flexShrink: 0 }}>
                 {logoSrc && !photoFailed ? (
                   <img
-                    src={logoSrc}
+                    src={resolveImageUrl(logoSrc)}
                     alt={profile.name}
                     onError={() => setPhotoFailed(true)}
                     style={{ width: '72px', height: '72px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--fb-blue)' }}

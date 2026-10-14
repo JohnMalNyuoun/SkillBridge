@@ -7,6 +7,7 @@ import ShareButton from '../../components/common/ShareButton';
 import { getCourse } from '../../services/courseService';
 import { applyForCourse, getMyApplications } from '../../services/applicationService';
 import { capture } from '../../lib/posthog';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -19,7 +20,6 @@ const CourseDetail = () => {
   const [alreadyApplied, setAlreadyApplied] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
-  const [detailImageIndex, setDetailImageIndex] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,10 +58,6 @@ const CourseDetail = () => {
     fetchData();
   }, [id]);
 
-  useEffect(() => {
-    setDetailImageIndex(0);
-  }, [id, course?.coverImage, course?.organisation?.logo]);
-
   const handleAnswerChange = (index, value) => {
     const updated = [...answers];
     updated[index].answer = value;
@@ -89,10 +85,7 @@ const CourseDetail = () => {
   const isDeadlinePassed = new Date() > new Date(course.applicationDeadline);
   const isFull = course.filledSlots >= course.totalSlots;
   const canApply = !alreadyApplied && !isDeadlinePassed && !isFull;
-  const detailImageCandidates = [course.coverImage, course.organisation?.logo]
-    .filter(Boolean)
-    .map((url) => url.replace('http://', 'https://'));
-  const detailImage = detailImageCandidates[detailImageIndex] || '';
+  const detailImage = resolveImageUrl(course.coverImage);
 
   return (
     <div style={{ background: 'var(--bg-base)', minHeight: '100vh' }}>
@@ -126,14 +119,8 @@ const CourseDetail = () => {
           {detailImage ? (
             <img
               src={detailImage}
-              alt={course.title}
-              onError={() => {
-                if (detailImageIndex < detailImageCandidates.length - 1) {
-                  setDetailImageIndex((current) => current + 1);
-                } else {
-                  setDetailImageIndex(detailImageCandidates.length);
-                }
-              }}
+              alt={`${course.title} course cover`}
+              onError={(event) => { event.currentTarget.style.display = 'none'; }}
               style={{
                 width: '100%',
                 height: '280px',

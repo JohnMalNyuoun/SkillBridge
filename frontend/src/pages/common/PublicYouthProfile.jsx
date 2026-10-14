@@ -6,6 +6,7 @@ import ShareButton from '../../components/common/ShareButton';
 import api from '../../services/api';
 import * as followService from '../../services/followService';
 import useAuth from '../../hooks/useAuth';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const PublicYouthProfile = () => {
   const { id } = useParams();
@@ -123,7 +124,7 @@ const PublicYouthProfile = () => {
               >
                 {profile?.photo ? (
                   <img
-                    src={profile.photo}
+                    src={resolveImageUrl(profile.photo)}
                     alt={profile.fullName}
                     style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover' }}
                   />

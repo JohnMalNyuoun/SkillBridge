@@ -4,16 +4,21 @@ import Navbar from '../../components/common/Navbar';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import { createCourse, getOrgCourse, updateCourse } from '../../services/courseService';
+import useAuth from '../../hooks/useAuth';
+import { clearFormDraft, loadFormDraft, saveFormDraft } from '../../utils/formDraftStorage';
 import {
   COURSE_CATEGORIES,
   DELIVERY_MODES,
   TARGET_AUDIENCES
 } from '../../utils/constants';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const CourseForm = () => {
   const navigate = useNavigate();
   const { id: courseId } = useParams();
   const isEditMode = Boolean(courseId);
+  const { user } = useAuth();
+  const ownerId = user?._id || user?.id;
 
   const [form, setForm] = useState({
     title: '',
@@ -34,48 +39,113 @@ const CourseForm = () => {
   const [questions, setQuestions] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(isEditMode);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [coverPreview, setCoverPreview] = useState('');
+  const [loadedDraftKey, setLoadedDraftKey] = useState('');
+  const [draftStatus, setDraftStatus] = useState('');
+  const [draftRestored, setDraftRestored] = useState(false);
 
   useEffect(() => {
-    if (!isEditMode) {
-      setInitialLoading(false);
-      return;
-    }
+    if (!ownerId) return undefined;
+    let active = true;
+    const key = `course:${ownerId}:${courseId || 'new'}`;
 
-    const fetchCourse = async () => {
+    const initializeForm = async () => {
       try {
-        const res = await getOrgCourse(courseId);
-        const data = res?.data || {};
-
-        setForm((current) => ({
-          ...current,
-          title: data.title || '',
-          description: data.description || '',
-          category: data.category || '',
-          targetAudience: data.targetAudience || '',
-          gender: data.gender || 'both',
-          location: data.location || 'Kakuma',
-          deliveryMode: data.deliveryMode || '',
-          startDate: data.startDate ? String(data.startDate).slice(0, 10) : '',
-          endDate: data.endDate ? String(data.endDate).slice(0, 10) : '',
-          applicationDeadline: data.applicationDeadline ? String(data.applicationDeadline).slice(0, 10) : '',
-          totalSlots: data.totalSlots ? String(data.totalSlots) : '',
-          googleFormLink: data.googleFormLink || '',
+        let initialForm = {
+          title: '',
+          description: '',
+          category: '',
+          targetAudience: '',
+          gender: 'both',
+          location: 'Kakuma',
+          deliveryMode: '',
+          startDate: '',
+          endDate: '',
+          applicationDeadline: '',
+          totalSlots: '',
+          googleFormLink: '',
           coverImage: null
-        }));
+        };
+        let initialQuestions = [];
+        let initialCoverPreview = '';
 
-        setQuestions(Array.isArray(data.applicationQuestions) ? data.applicationQuestions : []);
-        setCoverPreview(data.coverImage || '');
+        if (isEditMode) {
+          const res = await getOrgCourse(courseId);
+          const data = res?.data || {};
+          initialForm = {
+            ...initialForm,
+            title: data.title || '',
+            description: data.description || '',
+            category: data.category || '',
+            targetAudience: data.targetAudience || '',
+            gender: data.gender || 'both',
+            location: data.location || 'Kakuma',
+            deliveryMode: data.deliveryMode || '',
+            startDate: data.startDate ? String(data.startDate).slice(0, 10) : '',
+            endDate: data.endDate ? String(data.endDate).slice(0, 10) : '',
+            applicationDeadline: data.applicationDeadline ? String(data.applicationDeadline).slice(0, 10) : '',
+            totalSlots: data.totalSlots ? String(data.totalSlots) : '',
+            googleFormLink: data.googleFormLink || ''
+          };
+          initialQuestions = Array.isArray(data.applicationQuestions) ? data.applicationQuestions : [];
+          initialCoverPreview = data.coverImage || '';
+        }
+
+        let draft = null;
+        let draftReadError = '';
+        try {
+          draft = await loadFormDraft(key);
+        } catch (err) {
+          draftReadError = err.message || 'Could not check for a saved course draft.';
+        }
+        if (!active) return;
+
+        if (draft) {
+          setForm({ ...initialForm, ...draft.data.form, coverImage: draft.file });
+          setQuestions(draft.data.questions || initialQuestions);
+          setCoverPreview(draft.file ? URL.createObjectURL(draft.file) : initialCoverPreview);
+          setDraftRestored(true);
+          setDraftStatus('Your saved draft was restored. It is stored only in this browser.');
+        } else {
+          setForm(initialForm);
+          setQuestions(initialQuestions);
+          setCoverPreview(initialCoverPreview);
+          setDraftRestored(false);
+          setDraftStatus(draftReadError);
+        }
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load course');
+        if (active) {
+          setError(err.response?.data?.message || err.message || 'Failed to load course');
+        }
       } finally {
-        setInitialLoading(false);
+        if (active) {
+          setLoadedDraftKey(key);
+          setInitialLoading(false);
+        }
       }
     };
 
-    fetchCourse();
-  }, [courseId, isEditMode]);
+    initializeForm();
+    return () => {
+      active = false;
+    };
+  }, [courseId, isEditMode, ownerId]);
+
+  useEffect(() => {
+    const key = ownerId ? `course:${ownerId}:${courseId || 'new'}` : '';
+    if (!key || loadedDraftKey !== key) return undefined;
+
+    const { coverImage, ...formData } = form;
+    const timeout = setTimeout(() => {
+      setDraftStatus('Saving your draft in this browser...');
+      saveFormDraft(key, { form: formData, questions }, coverImage)
+        .then(() => setDraftStatus('Draft saved in this browser.'))
+        .catch((err) => setDraftStatus(err.message || 'Could not save a local draft.'));
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [courseId, form, loadedDraftKey, ownerId, questions]);
 
   useEffect(() => {
     return () => {
@@ -159,6 +229,11 @@ const CourseForm = () => {
       } else {
         await createCourse(buildPayload());
       }
+      try {
+        await clearFormDraft(`course:${ownerId}:${courseId || 'new'}`);
+      } catch (draftError) {
+        setDraftStatus(`Course saved, but the local draft could not be cleared: ${draftError.message}`);
+      }
       navigate('/org/courses');
     } catch (err) {
       setError(err.response?.data?.message || `Failed to ${isEditMode ? 'update' : 'create'} course`);
@@ -241,6 +316,40 @@ const CourseForm = () => {
           }}>
             {error}
           </div>
+        )}
+
+        {draftStatus && (
+          <p role="status" style={{
+            color: draftStatus.startsWith('Could not') ? 'var(--danger-text)' : 'var(--text-muted)',
+            fontSize: '0.82rem',
+            margin: '-12px 0 20px'
+          }}>
+            {draftStatus}
+            {draftRestored && (
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await clearFormDraft(`course:${ownerId}:${courseId || 'new'}`);
+                    setDraftStatus('');
+                    setDraftRestored(false);
+                  } catch (err) {
+                    setDraftStatus(err.message || 'Could not discard the local draft.');
+                  }
+                }}
+                style={{
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--fb-blue)',
+                  cursor: 'pointer',
+                  marginLeft: '8px',
+                  padding: 0
+                }}
+              >
+                Remove local draft
+              </button>
+            )}
+          </p>
         )}
 
         <form onSubmit={handleSubmit}>
@@ -352,12 +461,12 @@ const CourseForm = () => {
                 color: 'var(--text-muted)',
                 marginBottom: coverPreview ? '12px' : '0'
               }}>
-                Upload a JPG, PNG, or WEBP image. It will be stored in Cloudinary and shown on the course.
+                Upload a JPG, PNG, or WEBP image. It will be stored in MongoDB and shown on the course.
               </p>
 
               {coverPreview && (
                 <img
-                  src={coverPreview}
+                  src={resolveImageUrl(coverPreview)}
                   alt="Course cover preview"
                   style={{
                     width: '100%',

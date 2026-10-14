@@ -7,10 +7,10 @@ import api from '../../services/api';
 import { getAllCourses, addCourseComment, toggleCourseReaction } from '../../services/courseService';
 import { getMyApplications } from '../../services/applicationService';
 import useAuth from '../../hooks/useAuth';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const normalizeImageUrl = (url) => {
-  if (!url || typeof url !== 'string') return '';
-  return url.startsWith('http://') ? url.replace('http://', 'https://') : url;
+  return resolveImageUrl(url);
 };
 
 const Courses = () => {
@@ -262,7 +262,7 @@ const Courses = () => {
                     </p>
 
                     {b.image && (
-                      <img src={b.image} alt={b.title}
+                      <img src={resolveImageUrl(b.image)} alt={b.title}
                         onError={e => { e.currentTarget.style.display = 'none'; }}
                         style={{
                           width: '100%', maxHeight: '320px', objectFit: 'cover',
@@ -294,10 +294,7 @@ const Courses = () => {
               const alreadyApplied = appliedCourseIds.has(course._id);
               const canApply = !alreadyApplied && !isDeadlinePassed && !isFull;
               const orgLogo = normalizeImageUrl(course.organisation?.logo);
-              const rawCourseCover = typeof course.coverImage === 'string' ? course.coverImage.trim() : '';
-              const courseCoverImage = normalizeImageUrl(
-                rawCourseCover.startsWith('//') ? `https:${rawCourseCover}` : rawCourseCover
-              );
+              const courseCoverImage = normalizeImageUrl(course.coverImage);
 
               return (
                 <article key={item.id} style={{
@@ -345,6 +342,10 @@ const Courses = () => {
                         display: 'block',
                         width: 'calc(100% + 32px)',
                         margin: '0 -16px 12px',
+                        aspectRatio: '16 / 9',
+                        maxHeight: '520px',
+                        overflow: 'hidden',
+                        background: 'var(--bg-section-alt)',
                         textDecoration: 'none'
                       }}
                     >
@@ -353,10 +354,10 @@ const Courses = () => {
                         alt={`${course.title} course cover`}
                         loading={index === 0 ? 'eager' : 'lazy'}
                         decoding="async"
+                        onError={(event) => { event.currentTarget.style.display = 'none'; }}
                         style={{
                           width: '100%',
-                          height: 'auto',
-                          maxHeight: '520px',
+                          height: '100%',
                           objectFit: 'cover',
                           display: 'block'
                         }}

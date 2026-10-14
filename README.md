@@ -33,7 +33,7 @@ FursaHub is a platform that connects young people with courses and opportunities
 - Backend: Node.js, Express
 - Database: MongoDB with Mongoose
 - Authentication: JSON Web Tokens (JWT)
-- Media uploads: Cloudinary
+- Media uploads: MongoDB GridFS
 - Email: Nodemailer
 - Analytics: PostHog
 
@@ -83,14 +83,12 @@ FRONTEND_URL=https://your-frontend-domain.vercel.app
 
 Verify your sending domain with Resend, then configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in the Render service environment. The sender must use that verified domain.
 
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
 POSTHOG_API_KEY=your_posthog_key
 POSTHOG_HOST=https://us.i.posthog.com
 POSTHOG_PROJECT_ID=your_project_id
 POSTHOG_PERSONAL_API_KEY=your_personal_api_key
+
+Profile photos, organisation logos, course covers, and announcement images are stored in MongoDB GridFS. They are served from `/api/images/:id`. Existing image URLs remain unchanged and are not migrated automatically.
 
 
 cd Backend

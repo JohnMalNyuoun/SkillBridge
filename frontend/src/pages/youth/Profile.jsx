@@ -6,11 +6,10 @@ import ShareButton from '../../components/common/ShareButton';
 import { getYouthProfile, updateYouthProfile, updateYouthPhoto } from '../../services/profileService';
 import * as followService from '../../services/followService';
 import { COURSE_CATEGORIES } from '../../utils/constants';
+import { resolveImageUrl } from '../../utils/imageUrl';
 import useAuth from '../../hooks/useAuth';
+import { clearFormDraft, loadFormDraft, saveFormDraft } from '../../utils/formDraftStorage';
 
-const CLOUDINARY_CLOUD_NAME = 'dkxjwhxne';
-const CLOUDINARY_PROFILE_PRESET = 'Fursahub-profile';
-const CLOUDINARY_PROFILE_PRESET_FALLBACK = 'fursahub-courses';
 const BIO_MAX_LENGTH = 101;
 
 const editInputStyle = {
@@ -37,6 +36,9 @@ const YouthProfile = () => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveNotice, setSaveNotice] = useState('');
+  const [draftKey, setDraftKey] = useState('');
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftStatus, setDraftStatus] = useState('');
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const photoInputRef = useRef(null);
@@ -51,7 +53,7 @@ const YouthProfile = () => {
         photo: res.data.photo,
         updatedAt: res.data.updatedAt || new Date().toISOString()
       });
-      setEditForm({
+      const profileForm = {
         username: res.data.username || '',
         bio: res.data.bio || '',
         dateOfBirth: res.data.dateOfBirth ? String(res.data.dateOfBirth).slice(0, 10) : '',
@@ -61,15 +63,46 @@ const YouthProfile = () => {
           email: res.data.visibilitySettings?.email || 'private',
           phoneNumber: res.data.visibilitySettings?.phoneNumber || 'private'
         }
-      });
+      };
+      setEditForm(profileForm);
+
+      const userId = res.data?._id || res.data?.id;
+      if (userId) {
+        const key = `youth-profile:${userId}`;
+        setDraftKey(key);
+        try {
+          const draft = await loadFormDraft(key);
+          if (draft) {
+            setEditForm({ ...profileForm, ...draft.data });
+            setEditMode(true);
+            setDraftStatus('Your saved profile edits were restored. They are stored only in this browser.');
+          }
+        } catch (err) {
+          setDraftStatus(err.message || 'Could not check for a saved profile draft.');
+        }
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load profile');
     } finally {
+      setDraftReady(true);
       setLoading(false);
     }
   };
 
   useEffect(() => { fetchProfile(); }, []);
+
+  useEffect(() => {
+    if (!draftReady || !draftKey || !editMode) return undefined;
+
+    const timeout = setTimeout(() => {
+      setDraftStatus('Saving your profile edits in this browser...');
+      saveFormDraft(draftKey, editForm)
+        .then(() => setDraftStatus('Profile edits saved in this browser.'))
+        .catch((err) => setDraftStatus(err.message || 'Could not save a local profile draft.'));
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  }, [draftKey, draftReady, editForm, editMode]);
 
   useEffect(() => {
     const userId = profile?._id || profile?.id;
@@ -103,25 +136,15 @@ const YouthProfile = () => {
   }, [profile?._id, profile?.id]);
 
   const uploadProfilePhoto = async (file) => {
-    const uploadWithPreset = async (preset) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('upload_preset', preset);
-      const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
-        { method: 'POST', body: fd }
-      );
-      return res.json();
-    };
-
-    let data = await uploadWithPreset(CLOUDINARY_PROFILE_PRESET);
-    if (!data?.secure_url) data = await uploadWithPreset(CLOUDINARY_PROFILE_PRESET_FALLBACK);
-    if (!data?.secure_url) throw new Error('Failed to upload profile image');
+    const formData = new FormData();
+    formData.append('photo', file);
 
     const now = new Date().toISOString();
-    await updateYouthPhoto({ photoUrl: data.secure_url });
-    setProfile((prev) => ({ ...prev, photo: data.secure_url, updatedAt: now }));
-    updateUser({ photo: data.secure_url, updatedAt: now });
+    const response = await updateYouthPhoto(formData);
+    const photo = response?.data?.photo || response?.photo || response?.data?.data?.photo;
+    if (!photo) throw new Error('Photo uploaded but no image URL was returned by the server.');
+    setProfile((prev) => ({ ...prev, photo, updatedAt: now }));
+    updateUser({ photo, updatedAt: now });
   };
 
   const handleProfilePhotoChange = async (e) => {
@@ -173,12 +196,39 @@ const YouthProfile = () => {
         updatedAt: now
       });
       setSaveNotice('Profile updated successfully.');
+      try {
+        if (draftKey) await clearFormDraft(draftKey);
+        setDraftStatus('');
+      } catch (err) {
+        setDraftStatus(`Profile saved, but the local draft could not be cleared: ${err.message}`);
+      }
       setTimeout(() => setSaveNotice(''), 3000);
       setEditMode(false);   
     } catch (err) {
       setSaveError(err.response?.data?.message || err.message || 'Failed to save profile');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCancelEdit = async () => {
+    setEditForm({
+      username: profile?.username || '',
+      bio: profile?.bio || '',
+      dateOfBirth: profile?.dateOfBirth ? String(profile.dateOfBirth).slice(0, 10) : '',
+      phoneNumber: profile?.phoneNumber || '',
+      visibilitySettings: {
+        dateOfBirth: profile?.visibilitySettings?.dateOfBirth || 'private',
+        email: profile?.visibilitySettings?.email || 'private',
+        phoneNumber: profile?.visibilitySettings?.phoneNumber || 'private'
+      }
+    });
+    setEditMode(false);
+    try {
+      if (draftKey) await clearFormDraft(draftKey);
+      setDraftStatus('');
+    } catch (err) {
+      setDraftStatus(err.message || 'Could not discard the local profile draft.');
     }
   };
 
@@ -256,7 +306,13 @@ const YouthProfile = () => {
 
               <button
                 type="button"
-                onClick={() => setEditMode((prev) => !prev)}
+                onClick={() => {
+                  if (editMode) {
+                    handleCancelEdit();
+                  } else {
+                    setEditMode(true);
+                  }
+                }}
                 title={editMode ? 'Close edit' : 'Edit profile'}
                 aria-label={editMode ? 'Close edit' : 'Edit profile'}
                 style={{
@@ -303,7 +359,7 @@ const YouthProfile = () => {
                 >
                   {profile?.photo && !photoFailed ? (
                     <img
-                      src={photoVersionedSrc}
+                      src={resolveImageUrl(photoVersionedSrc)}
                       alt={profile.fullName}
                       onError={() => setPhotoFailed(true)}
                       style={{
@@ -421,6 +477,11 @@ const YouthProfile = () => {
                     {saveNotice}
                   </div>
                 )}
+                {draftStatus && (
+                  <p role="status" style={{ color: 'var(--text-muted)', fontSize: '0.78rem', margin: '0 0 12px' }}>
+                    {draftStatus}
+                  </p>
+                )}
 
                 <div style={{ display: 'grid', gap: '12px' }}>
                   <div>
@@ -526,7 +587,7 @@ const YouthProfile = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditMode(false)}
+                    onClick={handleCancelEdit}
                     style={{
                       flex: 1,
                       background: 'transparent',
@@ -660,7 +721,7 @@ const YouthProfile = () => {
               >
                 {profile?.photo && !photoFailed ? (
                   <img
-                    src={photoVersionedSrc}
+                    src={resolveImageUrl(photoVersionedSrc)}
                     alt={profile?.fullName || 'Profile photo'}
                     style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '12px' }}
                   />

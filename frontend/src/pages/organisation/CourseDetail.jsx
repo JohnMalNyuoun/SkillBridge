@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import ShareButton from '../../components/common/ShareButton';
 import { getOrgCourse } from '../../services/courseService';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const OrgCourseDetail = () => {
   const navigate = useNavigate();
@@ -78,7 +79,7 @@ const OrgCourseDetail = () => {
           <div style={{ display: 'grid', gap: '14px' }}>
             {course.coverImage && (
               <img
-                src={course.coverImage}
+                src={resolveImageUrl(course.coverImage)}
                 alt={course.title}
                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                 style={{

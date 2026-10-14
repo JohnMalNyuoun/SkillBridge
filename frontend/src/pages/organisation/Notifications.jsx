@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import { getOrgNotifications } from '../../services/notificationService';
 import api from '../../services/api';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const OrgNotifications = () => {
   const navigate = useNavigate();
@@ -134,7 +135,7 @@ const OrgNotifications = () => {
                 </p>
                 {n.image && (
                   <img
-                    src={n.image}
+                    src={resolveImageUrl(n.image)}
                     alt={n.title}
                     style={{
                       display: 'block',
