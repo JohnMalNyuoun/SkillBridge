@@ -84,18 +84,7 @@ const PublicYouthProfile = () => {
     <div className="fh-page">
       <Navbar />
 
-      <div className="fh-section-head">
-        <div>
-          <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '6px' }}>
-            Youth Profile
-          </h1>
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-            Public profile information
-          </p>
-        </div>
-      </div>
-
-      <div className="fh-container">
+      <div className="fh-container" style={{ maxWidth: '760px' }}>
         {error ? (
           <div
             style={{
@@ -109,12 +98,15 @@ const PublicYouthProfile = () => {
             {error}
           </div>
         ) : (
-          <div
-            style={{
-              padding: '0'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '8px' }}>
+          <main data-testid="youth-profile">
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px',
+              flexWrap: 'wrap',
+              padding: '8px 0 16px',
+              borderBottom: '1px solid var(--border-color)'
+            }}>
               <div
                 style={{
                   display: 'flex',
@@ -126,13 +118,13 @@ const PublicYouthProfile = () => {
                   <img
                     src={resolveImageUrl(profile.photo)}
                     alt={profile.fullName}
-                    style={{ width: '70px', height: '70px', borderRadius: '50%', objectFit: 'cover' }}
+                    style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
                   />
                 ) : (
                   <div
                     style={{
-                      width: '70px',
-                      height: '70px',
+                      width: '80px',
+                      height: '80px',
                       borderRadius: '50%',
                       background: 'var(--fb-blue)',
                       color: 'var(--text-on-primary)',
@@ -147,21 +139,17 @@ const PublicYouthProfile = () => {
                   </div>
                 )}
 
-                <div style={{ textAlign: 'left' }}>
-                  <h2 style={{ color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 800, marginBottom: '2px' }}>
+                <div style={{ textAlign: 'left', minWidth: 0 }}>
+                  <h1 style={{ color: 'var(--text-primary)', fontSize: '1.2rem', fontWeight: 800, marginBottom: '2px' }}>
                     {profile?.fullName}
-                  </h2>
+                  </h1>
                   <p style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginBottom: '2px' }}>
                     @{profile?.username || 'username_not_set'}
                   </p>
                 </div>
               </div>
 
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', display: 'block', marginBottom: '8px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>{followerCount}</strong> followers
-                </span>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   {user && user.id !== id && (
                     <button
                       onClick={handleFollowClick}
@@ -171,7 +159,7 @@ const PublicYouthProfile = () => {
                         borderRadius: '6px',
                         border: isFollowing ? '1px solid var(--fb-blue)' : 'none',
                         background: isFollowing ? 'transparent' : 'var(--fb-blue)',
-                        color: isFollowing ? 'var(--fb-blue)' : 'var(--text-primary)',
+                        color: isFollowing ? 'var(--fb-blue)' : 'var(--text-on-primary)',
                         fontWeight: 700,
                         fontSize: '0.82rem',
                         cursor: followLoading ? 'not-allowed' : 'pointer',
@@ -188,16 +176,34 @@ const PublicYouthProfile = () => {
                     text={profile?.bio?.slice(0, 140) || 'On SkillBridge'}
                     compact
                   />
-                </div>
               </div>
             </div>
 
-            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', marginBottom: '16px' }}>
+            <div style={{
+              display: 'flex',
+              gap: '18px',
+              padding: '12px 0',
+              borderBottom: '1px solid var(--border-color)',
+              color: 'var(--text-secondary)',
+              fontSize: '0.84rem'
+            }}>
+              <span><strong style={{ color: 'var(--text-primary)' }}>{followerCount}</strong> followers</span>
+            </div>
+
+            <div style={{ padding: '14px 0', borderBottom: '1px solid var(--border-color)' }}>
+              <h2 style={{ color: 'var(--text-primary)', fontSize: '0.98rem', fontWeight: 800, marginBottom: '8px' }}>
+                Intro
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', margin: 0, lineHeight: 1.6 }}>
                 {profile?.bio || 'No bio provided.'}
               </p>
+            </div>
 
-              <div style={{ display: 'grid', gap: '8px' }}>
+            <section style={{ padding: '14px 0', borderBottom: '1px solid var(--border-color)' }}>
+              <h2 style={{ color: 'var(--text-primary)', fontSize: '0.98rem', fontWeight: 800, marginBottom: '8px' }}>
+                Details
+              </h2>
+              <div style={{ display: 'grid', gap: '0' }}>
                 {[
                   ['Community', profile?.communityType?.replace('_', ' ') || 'N/A'],
                   ['Date of Birth', profile?.dateOfBirth ? new Date(profile.dateOfBirth).toLocaleDateString() : 'N/A'],
@@ -206,17 +212,18 @@ const PublicYouthProfile = () => {
                   ['Gender', profile?.gender || 'N/A'],
                   ['Language', profile?.language || 'N/A']
                 ].map(([label, value]) => (
-                  <div key={label} style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '10px' }}>
-                    <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.84rem' }}>{label}</span>
-                    <span style={{ color: 'var(--text-primary)', fontSize: '0.88rem', textTransform: 'capitalize' }}>{value}</span>
+                  <div key={label} style={{ display: 'grid', gridTemplateColumns: 'minmax(100px, 0.35fr) 1fr', gap: '10px', padding: '9px 0', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 700, fontSize: '0.82rem' }}>{label}</span>
+                    <span style={{ color: 'var(--text-primary)', fontSize: '0.88rem', textTransform: 'capitalize', overflowWrap: 'anywhere' }}>{value}</span>
                   </div>
                 ))}
               </div>
+            </section>
 
-              <div style={{ marginTop: '20px', paddingTop: '12px', borderTop: '1px solid var(--border-color)' }}>
-                <h3 style={{ color: 'var(--text-primary)', fontSize: '0.98rem', fontWeight: 800, marginBottom: '10px' }}>
+            <section style={{ padding: '14px 0' }}>
+                <h2 style={{ color: 'var(--text-primary)', fontSize: '0.98rem', fontWeight: 800, marginBottom: '4px' }}>
                   Courses
-                </h3>
+                </h2>
 
                 {profile?.attendedCourses && profile.attendedCourses.length > 0 ? (
                   <div style={{ display: 'grid', gap: '0' }}>
@@ -245,9 +252,8 @@ const PublicYouthProfile = () => {
                 ) : (
                   <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: 0 }}>No courses yet.</p>
                 )}
-              </div>
-            </div>
-          </div>
+            </section>
+          </main>
         )}
       </div>
     </div>

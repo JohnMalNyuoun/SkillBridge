@@ -2,6 +2,8 @@ const User = require('../../models/Users');
 const Organisation = require('../../models/Organisation');
 const Follow = require('../../models/Follow');
 const Application = require('../../models/Application');
+const Course = require('../../models/course');
+const CourseEngagement = require('../../models/CourseEngagement');
 const { success, error } = require('../../utils/apiResponse');
 
 // @desc    Get public youth profile
@@ -84,7 +86,50 @@ const getPublicOrganisationProfile = async (req, res) => {
       return error(res, 404, 'Organisation profile not found');
     }
 
-    return success(res, 200, 'Organisation profile fetched', organisation);
+    const courses = await Course.find({
+      organisation: organisation._id,
+      status: { $in: ['published', 'closed', 'cancelled'] }
+    })
+      .select('+coverImage title description status createdAt applicationDeadline category location deliveryMode filledSlots totalSlots')
+      .sort({ createdAt: -1 })
+      .lean();
+    const engagements = await CourseEngagement.find({
+      course: { $in: courses.map((course) => course._id) }
+    })
+      .populate('comments.user', 'fullName photo')
+      .lean();
+    const engagementByCourse = new Map(
+      engagements.map((engagement) => [String(engagement.course), engagement])
+    );
+    const posts = courses.map((course) => {
+      const engagement = engagementByCourse.get(String(course._id));
+      const reactions = engagement?.reactions || [];
+      const comments = engagement?.comments || [];
+
+      return {
+        ...course,
+        engagement: {
+          reactionsCount: reactions.length,
+          commentsCount: comments.length,
+          reactedByMe: reactions.some((userId) => String(userId) === String(req.user.id)),
+          recentComments: comments.slice(-3).reverse().map((comment) => ({
+            _id: comment._id,
+            text: comment.text,
+            createdAt: comment.createdAt,
+            user: {
+              _id: comment.user?._id,
+              fullName: comment.user?.fullName || 'User',
+              photo: comment.user?.photo || null
+            }
+          }))
+        }
+      };
+    });
+
+    const profile = organisation.toObject();
+    profile.posts = posts;
+
+    return success(res, 200, 'Organisation profile fetched', profile);
   } catch (err) {
     return error(res, 500, err.message);
   }

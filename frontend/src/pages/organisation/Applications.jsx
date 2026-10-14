@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
@@ -31,7 +31,7 @@ const Applications = () => {
   const [filterCourse, setFilterCourse] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const params = {};
       if (filterCourse) params.courseId = filterCourse;
@@ -48,11 +48,11 @@ const Applications = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterCourse, filterStatus]);
 
   useEffect(() => {
-    fetchData();
-  }, [filterCourse, filterStatus]);
+    void Promise.resolve().then(fetchData);
+  }, [fetchData]);
 
   const handleShortlist = async () => {
     setActionLoading('shortlist');
@@ -198,120 +198,151 @@ const Applications = () => {
         ) : (
           <div>
             {applications.map(app => {
+              const applicantName = app.youth?.fullName || 'Applicant';
+              const applicantInitial = applicantName.charAt(0).toUpperCase();
+              const canReview = app.status === 'submitted' || app.status === 'under_review';
+              const canAccept = app.status === 'shortlisted';
+
               return (
-                <div key={app._id} style={{
-                  padding: '20px 0',
+                <div key={app._id} data-testid="application-row" style={{
+                  padding: '16px 0',
                   borderBottom: '1px solid var(--border-color)'
                 }}>
-                  {/* Top row */}
                   <div style={{
                     display: 'flex',
-                    justifyContent: 'space-between',
                     alignItems: 'flex-start',
-                    flexWrap: 'wrap',
-                    gap: '12px',
-                    marginBottom: '16px'
+                    gap: '12px'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       {app.youth?.photo ? (
                         <img
                           src={resolveImageUrl(app.youth.photo)}
-                          alt={app.youth?.fullName || 'Youth'}
-                          style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }}
+                          alt={`${applicantName} profile`}
+                          style={{
+                            width: '56px',
+                            height: '56px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            flexShrink: 0
+                          }}
                         />
                       ) : (
                         <div style={{
-                          width: '40px',
-                          height: '40px',
+                          width: '56px',
+                          height: '56px',
                           borderRadius: '50%',
-                          background: 'var(--fb-blue)',
-                          color: 'var(--text-on-primary)',
+                          background: 'var(--fb-blue-subtle)',
+                          color: 'var(--fb-blue)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontWeight: 800,
-                          fontSize: '0.8rem'
+                          fontWeight: 900,
+                          fontSize: '1.1rem',
+                          flexShrink: 0
                         }}>
-                          {(app.youth?.fullName || 'Y').charAt(0).toUpperCase()}
+                          {applicantInitial}
                         </div>
                       )}
 
-                      <div>
-                      <h3 style={{
-                        fontSize: '1.05rem',
-                        fontWeight: '700',
-                        color: 'var(--text-primary)',
-                        marginBottom: '2px'
-                      }}>
-                        <Link
-                          to={`/profiles/youth/${app.youth?._id}`}
-                          style={{ color: 'var(--text-primary)', textDecoration: 'underline' }}
-                        >
-                          {app.youth?.fullName}
-                        </Link>
-                      </h3>
-                      <p style={{
-                        fontSize: '0.85rem',
-                        color: 'var(--text-muted)'
-                      }}>
-                        {app.youth?.email} · {app.youth?.communityType?.replace('_', ' ')}
-                      </p>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px',
+                          flexWrap: 'wrap'
+                        }}>
+                          <h3 style={{
+                            fontSize: '1rem',
+                            fontWeight: 800,
+                            color: 'var(--text-primary)',
+                            margin: 0
+                          }}>
+                            <Link
+                              to={`/profiles/youth/${app.youth?._id}`}
+                              style={{ color: 'inherit', textDecoration: 'none' }}
+                            >
+                              {applicantName}
+                            </Link>
+                          </h3>
+                          {app.status !== 'submitted' && (
+                            <span className={`fh-badge fh-badge-${app.status}`}>
+                              {app.status.replace('_', ' ')}
+                            </span>
+                          )}
+                        </div>
+                        <p style={{
+                          fontSize: '0.8rem',
+                          color: 'var(--text-muted)',
+                          overflowWrap: 'anywhere',
+                          margin: '3px 0 0'
+                        }}>
+                          {[app.youth?.email, app.youth?.communityType?.replace('_', ' ')]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </p>
+                        <p style={{
+                          fontSize: '0.82rem',
+                          color: 'var(--fb-blue)',
+                          fontWeight: 700,
+                          margin: '7px 0 0'
+                        }}>
+                          {app.course?.title || 'Course application'}
+                        </p>
+                        <p style={{
+                          fontSize: '0.76rem',
+                          color: 'var(--text-muted)',
+                          margin: '2px 0 0'
+                        }}>
+                          Applied {new Date(app.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
-                    </div>
-
-                    <span className={`fh-badge fh-badge-${app.status}`}>
-                      {app.status.replace('_', ' ')}
-                    </span>
                   </div>
 
-                  {/* Course */}
-                  <p style={{
-                    fontSize: '0.85rem',
-                    color: 'var(--fb-blue)',
-                    fontWeight: '600',
-                    marginBottom: '12px'
-                  }}>
-                    {app.course?.title}
-                  </p>
-
-                  {/* Answers */}
                   {app.answers && app.answers.length > 0 && (
-                    <div style={{
-                      borderLeft: '2px solid var(--border-color)',
-                      padding: '4px 0 4px 12px',
-                      marginBottom: '16px'
-                    }}>
-                      {app.answers.map((a, i) => (
-                        <div key={i} style={{ marginBottom: i < app.answers.length - 1 ? '12px' : 0 }}>
-                          <p style={{
-                            fontSize: '0.78rem',
-                            fontWeight: '700',
-                            color: 'var(--text-muted)',
-                            marginBottom: '4px',
-                            textTransform: 'uppercase'
-                          }}>
-                            {a.question}
-                          </p>
-                          <p style={{
-                            fontSize: '0.9rem',
-                            color: 'var(--text-primary)'
-                          }}>
-                            {a.answer || '—'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                    <details style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                      <summary style={{
+                        color: 'var(--fb-blue)',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}>
+                        Review application answers ({app.answers.length})
+                      </summary>
+                      <div style={{
+                        borderLeft: '2px solid var(--border-color)',
+                        padding: '8px 0 2px 12px',
+                        marginTop: '8px'
+                      }}>
+                        {app.answers.map((a, i) => (
+                          <div key={i} style={{ marginBottom: i < app.answers.length - 1 ? '12px' : 0 }}>
+                            <p style={{
+                              fontSize: '0.76rem',
+                              fontWeight: 700,
+                              color: 'var(--text-muted)',
+                              marginBottom: '4px',
+                              textTransform: 'uppercase'
+                            }}>
+                              {a.question}
+                            </p>
+                            <p style={{ fontSize: '0.88rem', color: 'var(--text-primary)' }}>
+                              {a.answer || '—'}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   )}
 
-                  {/* Shortlist next step info */}
                   {app.status === 'shortlisted' && app.nextStep?.type && (
                     <div style={{
                       background: 'var(--fb-blue-subtle)',
                       borderLeft: '3px solid var(--fb-blue)',
-                      borderRadius: 'var(--radius)',
-                      padding: '12px',
-                      marginBottom: '16px',
-                      fontSize: '0.85rem',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      marginTop: '12px',
+                      fontSize: '0.82rem',
                       color: 'var(--fb-blue)'
                     }}>
                       Next step: {app.nextStep.type} ·{' '}
@@ -322,54 +353,74 @@ const Applications = () => {
                     </div>
                   )}
 
-                  {/* Applied date */}
-                  <p style={{
-                    fontSize: '0.78rem',
-                    color: 'var(--text-muted)',
-                    marginBottom: '16px'
-                  }}>
-                    Applied {new Date(app.createdAt).toLocaleDateString()}
-                  </p>
-
-                  {/* Actions */}
-                  {app.status === 'submitted' || app.status === 'under_review' ? (
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  {canReview ? (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gap: '8px',
+                      marginTop: '14px'
+                    }}>
                       <Button
                         onClick={() => {
                           setSelectedApp(app);
                           setModal('shortlist');
                         }}
-                        style={{ fontSize: '0.85rem', padding: '8px 16px' }}
+                        fullWidth
+                        style={{ minWidth: 0, minHeight: '42px', fontSize: '0.86rem', padding: '8px 6px', borderRadius: '8px' }}
                       >
                         Shortlist
                       </Button>
                       <Button
-                        variant="danger"
+                        variant="outline"
                         onClick={() => {
                           setSelectedApp(app);
                           setModal('reject');
                         }}
-                        style={{ fontSize: '0.85rem', padding: '8px 16px' }}
+                        fullWidth
+                        style={{
+                          minWidth: 0,
+                          minHeight: '42px',
+                          fontSize: '0.86rem',
+                          padding: '8px 6px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-secondary)'
+                        }}
                       >
                         Reject
                       </Button>
                     </div>
-                  ) : app.status === 'shortlisted' ? (
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  ) : canAccept ? (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                      gap: '8px',
+                      marginTop: '14px'
+                    }}>
                       <Button
                         loading={actionLoading === app._id + '_accept'}
                         onClick={() => handleAccept(app._id)}
-                        style={{ fontSize: '0.85rem', padding: '8px 16px' }}
+                        fullWidth
+                        style={{ minWidth: 0, minHeight: '42px', fontSize: '0.86rem', padding: '8px 6px', borderRadius: '8px' }}
                       >
                         Accept
                       </Button>
                       <Button
-                        variant="danger"
+                        variant="outline"
                         onClick={() => {
                           setSelectedApp(app);
                           setModal('reject');
                         }}
-                        style={{ fontSize: '0.85rem', padding: '8px 16px' }}
+                        fullWidth
+                        style={{
+                          minWidth: 0,
+                          minHeight: '42px',
+                          fontSize: '0.86rem',
+                          padding: '8px 6px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-secondary)'
+                        }}
                       >
                         Reject
                       </Button>

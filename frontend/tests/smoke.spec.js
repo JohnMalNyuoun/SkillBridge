@@ -376,13 +376,18 @@ test.describe("route guards", () => {
                 applicationDeadline: "2099-01-01",
                 filledSlots: 0,
                 totalSlots: 10,
-                organisation: { _id: "home-org", name: "Community Organisation" },
+                organisation: {
+                  _id: "home-org",
+                  name: "Community Organisation",
+                  logo: "/organisation-logo.jpg",
+                },
                 engagement: { reactionsCount: 0, commentsCount: 0, recentComments: [] },
               },
             ],
           }),
         });
       });
+
       await page.route("**/api/broadcasts**", async (route) => {
         await route.fulfill({
           status: 200,
@@ -405,6 +410,12 @@ test.describe("route guards", () => {
       await expect(page.getByRole("heading", { name: "Community Skills Course" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Latest Updates" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "New community update" })).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "View Community Organisation profile" }),
+      ).toHaveAttribute("href", "/profiles/organisation/home-org");
+      await expect(
+        page.getByRole("link", { name: "Community Organisation", exact: true }),
+      ).toHaveAttribute("href", "/profiles/organisation/home-org");
       await expect(page.getByRole("link", { name: "View all" })).toHaveAttribute(
         "href",
         "/updates",
@@ -424,6 +435,177 @@ test.describe("route guards", () => {
         await expect
           .poll(() => post.evaluate((element) => getComputedStyle(element).borderRadius))
           .toBe("0px");
+      }
+      expect(page.pageErrors).toEqual([]);
+    });
+
+    test("youth profile uses a flat social profile layout", async ({ page }) => {
+      await authenticateAs(page, "youth");
+      await page.route("**/api/profiles/youth/profile-youth", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: {
+              _id: "profile-youth",
+              fullName: "Amina Youth",
+              username: "amina",
+              bio: "Learning and building new skills.",
+              communityType: "host_community",
+              gender: "female",
+              language: "English",
+              attendedCourses: [{ _id: "course-1", title: "Digital Skills" }],
+            },
+          }),
+        });
+      });
+      await page.route("**/api/follow/count/profile-youth/User", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { count: 8 } }),
+        });
+      });
+      await page.route("**/api/follow/status/profile-youth/User", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { isFollowing: false } }),
+        });
+      });
+
+      await page.goto("/profiles/youth/profile-youth");
+
+      const profile = page.getByTestId("youth-profile");
+      await expect(profile.getByRole("heading", { name: "Amina Youth" })).toBeVisible();
+      await expect(profile.getByRole("heading", { name: "Intro" })).toBeVisible();
+      await expect(profile.getByRole("heading", { name: "Details" })).toBeVisible();
+      await expect(profile.getByRole("heading", { name: "Courses" })).toBeVisible();
+      await expect(profile.getByText("8 followers")).toBeVisible();
+      for (const section of await profile.locator("section").all()) {
+        await expect(section).toHaveCSS("border-radius", "0px");
+        await expect(section).toHaveCSS("box-shadow", "none");
+      }
+      expect(page.pageErrors).toEqual([]);
+    });
+
+    test("organisation profile uses flat page sections", async ({
+      page,
+    }) => {
+      await authenticateAs(page, "youth");
+      await page.route("**/api/profiles/organisation/profile-org", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: {
+              _id: "profile-org",
+              name: "Community Organisation",
+              type: "Non-profit",
+              description: "Supporting learning and opportunity in the community.",
+              location: "Kakuma",
+              website: "https://example.org",
+              email: "hello@example.org",
+              phoneNumber: "+254700000000",
+              logo: "https://example.org/logo.png",
+              posts: [
+                {
+                  _id: "org-course-1",
+                  title: "Digital Skills Course",
+                  description: "A course posted by this organisation.",
+                  status: "published",
+                  createdAt: new Date().toISOString(),
+                  applicationDeadline: new Date(
+                    Date.now() + 30 * 24 * 60 * 60 * 1000,
+                  ).toISOString(),
+                  category: "technology",
+                  location: "Kakuma",
+                  deliveryMode: "in_person",
+                  filledSlots: 2,
+                  totalSlots: 20,
+                  engagement: {
+                    reactionsCount: 7,
+                    commentsCount: 1,
+                    reactedByMe: false,
+                    recentComments: [
+                      {
+                        _id: "comment-1",
+                        text: "Looking forward to this course.",
+                        user: { fullName: "Community Member" },
+                      },
+                    ],
+                  },
+                },
+              ],
+            },
+          }),
+        });
+      });
+      await page.route("**/api/follow/count/profile-org/Organisation", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { count: 12 } }),
+        });
+      });
+      await page.route("**/api/follow/status/profile-org/Organisation", async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { isFollowing: false } }),
+        });
+      });
+      await page.route(
+        "**/api/youth/courses/org-course-1/reaction",
+        async (route) => {
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({
+              data: { reacted: true, reactionsCount: 8, commentsCount: 1 },
+            }),
+          });
+        },
+      );
+
+      await page.goto("/profiles/organisation/profile-org");
+
+      const profile = page.getByTestId("organisation-profile");
+      await expect(page.getByRole("heading", { name: "Community Organisation" })).toBeVisible();
+      await expect(profile.getByRole("heading", { name: "About" })).toBeVisible();
+      await expect(
+        profile.getByRole("heading", { name: "Organisation details" }),
+      ).toBeVisible();
+      await expect(profile.getByRole("heading", { name: "Posts" })).toBeVisible();
+      const posts = profile.getByTestId("organisation-post");
+      await expect(posts).toHaveCount(1);
+      await expect(posts.getByText("Digital Skills Course")).toBeVisible();
+      await expect(posts.getByText("Applications open")).toHaveCount(0);
+      await expect(posts).toContainText("Community Organisation");
+      await expect(posts).toContainText("Kakuma");
+      await expect(posts.getByRole("link", { name: "Apply" })).toHaveAttribute(
+        "href",
+        "/courses/org-course-1",
+      );
+      await expect(
+        posts.getByRole("button", { name: "React (7)" }),
+      ).toBeEnabled();
+      await expect(
+        posts.getByRole("button", { name: "Comment (1)" }),
+      ).toBeEnabled();
+      await posts.getByRole("button", { name: "React (7)" }).click();
+      await expect(
+        posts.getByRole("button", { name: "Reacted (8)" }),
+      ).toBeVisible();
+      await posts.getByRole("button", { name: "Comment (1)" }).click();
+      await expect(posts.getByPlaceholder("Write a comment")).toBeVisible();
+      await expect(posts).toContainText("Looking forward to this course.");
+      await expect(posts).toHaveCSS("border-radius", "0px");
+      await expect(posts).toHaveCSS("box-shadow", "none");
+      await expect(profile.locator("section")).toHaveCount(4);
+      for (const section of await profile.locator("section").all()) {
+        await expect(section).toHaveCSS("border-radius", "0px");
+        await expect(section).toHaveCSS("box-shadow", "none");
       }
       expect(page.pageErrors).toEqual([]);
     });

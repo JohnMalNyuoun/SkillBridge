@@ -288,29 +288,35 @@ const Home = () => {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                    {course.organisation?.logo ? (
-                      <img
-                        src={resolveImageUrl(course.organisation.logo)}
-                        alt={course.organisation?.name || 'Organisation'}
-                        style={{ width: '40px', height: '40px', borderRadius: '999px', objectFit: 'cover' }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          borderRadius: '999px',
-                          background: 'var(--bg-section-alt)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--text-primary)',
-                          fontWeight: 800
-                        }}
-                      >
-                        {(course.organisation?.name || 'O').charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <Link
+                      to={`/profiles/organisation/${course.organisation?._id}`}
+                      aria-label={`View ${course.organisation?.name || 'Organisation'} profile`}
+                      style={{ display: 'flex', flexShrink: 0, textDecoration: 'none' }}
+                    >
+                      {course.organisation?.logo ? (
+                        <img
+                          src={resolveImageUrl(course.organisation.logo)}
+                          alt=""
+                          style={{ width: '40px', height: '40px', borderRadius: '999px', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '999px',
+                            background: 'var(--bg-section-alt)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'var(--text-primary)',
+                            fontWeight: 800
+                          }}
+                        >
+                          {(course.organisation?.name || 'O').charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                    </Link>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <Link
