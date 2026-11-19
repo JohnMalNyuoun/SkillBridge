@@ -29,8 +29,10 @@ test('enrolled students can join a call room and exchange WebRTC signals', async
     data: {
       user: {
         id: 'eeeeeeeeeeeeeeeeeeeeeeee',
-        fullName: 'Another student'
-      }
+        fullName: 'Another student',
+        photo: '/api/images/peer-photo'
+      },
+      callHasVideo: { [callId]: false }
     },
     rooms: new Set([callRoom]),
     emit(event, payload) {
@@ -66,6 +68,7 @@ test('enrolled students can join a call room and exchange WebRTC signals', async
     select: async () => ({
       _id: studentId,
       fullName: 'Enrolled student',
+      photo: '/api/images/student-photo',
       role: 'youth',
       isActive: true,
       isSuspended: false
@@ -112,12 +115,32 @@ test('enrolled students can join a call room and exchange WebRTC signals', async
     connectionHandler(socket);
 
     let joinResult;
-    await socketEvents['course-call:join']({ callSessionId: callId }, (result) => {
+    await socketEvents['course-call:join']({
+      callSessionId: callId,
+      hasVideo: true
+    }, (result) => {
       joinResult = result;
     });
     assert.equal(joinResult.success, true);
     assert.equal(joinResult.participants[0].socketId, participantId);
+    assert.equal(joinResult.participants[0].photo, '/api/images/peer-photo');
+    assert.equal(joinResult.participants[0].hasVideo, false);
     assert.equal(socket.rooms.has(callRoom), true);
+    assert.equal(socket.data.user.photo, '/api/images/student-photo');
+
+    let mediaStateResult;
+    await socketEvents['course-call:media-state']({
+      callSessionId: callId,
+      hasVideo: false
+    }, (result) => {
+      mediaStateResult = result;
+    });
+    assert.equal(mediaStateResult.success, true);
+    assert.equal(broadcasts[1].event, 'course-call:participant-media-state');
+    assert.deepEqual(broadcasts[1].payload, {
+      socketId: 'current-socket-id',
+      hasVideo: false
+    });
 
     let signalResult;
     await socketEvents['course-call:signal']({
@@ -130,6 +153,8 @@ test('enrolled students can join a call room and exchange WebRTC signals', async
     assert.equal(signalResult.success, true);
     assert.equal(broadcasts[0].event, 'course-call:participant-joined');
     assert.equal(broadcasts[0].payload.userId, studentId);
+    assert.equal(broadcasts[0].payload.photo, '/api/images/student-photo');
+    assert.equal(broadcasts[0].payload.hasVideo, true);
     assert.equal(participant.emittedSignal.event, 'course-call:signal');
     assert.equal(participant.emittedSignal.signal.description.sdp, 'example-sdp');
   } finally {

@@ -1,7 +1,7 @@
 import api from './api';
 
-export const startCourseCall = async (courseId) => {
-  const response = await api.post(`/org/courses/${courseId}/group-calls`);
+export const startCourseCall = async (courseId, callType) => {
+  const response = await api.post(`/org/courses/${courseId}/group-calls`, { callType });
   return response.data;
 };
 

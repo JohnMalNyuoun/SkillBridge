@@ -115,16 +115,19 @@ test('starting a course call creates an invitation for every enrolled student', 
     const res = makeResponse();
     await startCourseCall({
       params: { courseId },
+      body: { callType: 'audio' },
       user: { id: staffId, role: 'staff' },
       app: { get: () => io }
     }, res);
 
     assert.equal(res.statusCode, 201);
     assert.equal(createdSession.status, 'ongoing');
+    assert.equal(createdSession.callType, 'audio');
     assert.equal(createdSession.courseId, courseId);
     assert.deepEqual(createdSession.invitedStudents, studentIds);
     assert.equal(insertedNotifications.length, studentIds.length);
     assert.ok(insertedNotifications.every((item) => item.type === 'course_call'));
+    assert.ok(insertedNotifications.every((item) => item.message.includes('audio call')));
     assert.deepEqual(
       emittedInvitations.map((item) => item.room),
       studentIds.map((studentId) => `user:${studentId}`)
@@ -139,7 +142,8 @@ test('starting a course call creates an invitation for every enrolled student', 
       payload: {
         callSessionId: 'ffffffffffffffffffffffff',
         courseId,
-        courseTitle: 'Course title'
+        courseTitle: 'Course title',
+        callType: 'audio'
       }
     }]);
   } finally {
@@ -153,6 +157,17 @@ test('starting a course call creates an invitation for every enrolled student', 
     User.find = originals.userFind;
     User.findById = originals.userFindById;
   }
+});
+
+test('starting a course call rejects unsupported call types', async () => {
+  const res = makeResponse();
+  await startCourseCall({
+    params: { courseId: 'bbbbbbbbbbbbbbbbbbbbbbbb' },
+    body: { callType: 'screen-share' }
+  }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /audio or video/i);
 });
 
 test('authorized course members can discover the ongoing call for a course', async () => {

@@ -36,6 +36,45 @@ const SettingsIcon = () => (
   </svg>
 );
 
+const CallTypePicker = ({ onStart, onClose, starting }) => (
+  <div role="dialog" aria-modal="true" aria-labelledby="call-type-title" style={{
+    position: 'fixed',
+    inset: 0,
+    zIndex: 1000,
+    display: 'grid',
+    placeItems: 'center',
+    padding: '20px',
+    background: 'rgba(0,0,0,0.55)'
+  }}>
+    <div style={{
+      width: 'min(100%, 420px)',
+      padding: '22px',
+      borderRadius: '14px',
+      background: 'var(--bg-surface)',
+      color: 'var(--text-primary)',
+      boxShadow: '0 20px 60px rgba(0,0,0,0.25)'
+    }}>
+      <h2 id="call-type-title" style={{ fontSize: '1.15rem', fontWeight: 800 }}>
+        Choose a call type
+      </h2>
+      <p style={{ color: 'var(--text-secondary)', margin: '8px 0 18px' }}>
+        Enrolled students will be invited to join. You can turn your camera on or off during the call.
+      </p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+        <button type="button" onClick={() => onStart('audio')} disabled={starting}>
+          Start audio call
+        </button>
+        <button type="button" onClick={() => onStart('video')} disabled={starting}>
+          Start video call
+        </button>
+        <button type="button" onClick={onClose} disabled={starting}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = false }) => {
   const { token, user } = useAuth();
   const [chatData, setChatData] = useState(null);
@@ -47,6 +86,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [startingCall, setStartingCall] = useState(false);
+  const [callTypePickerOpen, setCallTypePickerOpen] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [joiningCallId, setJoiningCallId] = useState('');
   const [callStatusError, setCallStatusError] = useState('');
@@ -199,10 +239,10 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
       setError('Your access to this discussion was removed.');
       socket.disconnect();
     });
-    socket.on('course-call:started', ({ callSessionId, courseId: startedCourseId }) => {
+    socket.on('course-call:started', ({ callSessionId, courseId: startedCourseId, callType }) => {
       if (String(startedCourseId) !== String(courseId)) return;
       callStatusRevisionRef.current += 1;
-      setActiveCall({ _id: callSessionId, status: 'ongoing' });
+      setActiveCall({ _id: callSessionId, status: 'ongoing', callType });
       setCallStatusError('');
     });
     socket.on('course-call:ended', ({ callSessionId, courseId: endedCourseId }) => {
@@ -242,13 +282,16 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
     }
   };
 
-  const handleStartCall = async () => {
+  const handleStartCall = async (callType) => {
     setStartingCall(true);
     setError('');
     try {
-      const response = await startCourseCall(courseId);
+      const response = await startCourseCall(courseId, callType);
       setActiveCall(response.data.callSession);
-      navigate(`/calls/${response.data.callSession._id}`);
+      setCallTypePickerOpen(false);
+      navigate(`/calls/${response.data.callSession._id}`, {
+        state: { initialMode: callType }
+      });
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to start a course call.');
     } finally {
@@ -439,7 +482,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
         {canStartCall && !chatMissing && (
           <button
             type="button"
-            onClick={handleStartCall}
+            onClick={() => setCallTypePickerOpen(true)}
             disabled={startingCall}
             aria-label={startingCall ? 'Starting group call' : 'Start group call'}
             title={startingCall ? 'Starting group call' : 'Start group call'}
@@ -458,6 +501,13 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
           >
             <VideoCallIcon />
           </button>
+        )}
+        {callTypePickerOpen && (
+          <CallTypePicker
+            onStart={handleStartCall}
+            onClose={() => setCallTypePickerOpen(false)}
+            starting={startingCall}
+          />
         )}
       </section>
     );
@@ -487,7 +537,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
           <div>
             <strong style={{ color: 'var(--success-text)' }}>Ongoing group call</strong>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '3px' }}>
-              Join the live call for {groupChatName}.
+              {activeCall.callType === 'audio' ? 'Audio' : 'Video'} call · Join the live call for {groupChatName}.
             </p>
           </div>
           <button
@@ -537,7 +587,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
             onClick={() => (
               activeCall
                 ? handleJoinActiveCall(activeCall._id)
-                : handleStartCall()
+                : setCallTypePickerOpen(true)
             )}
             disabled={startingCall || joiningCallId === activeCall?._id}
             aria-label={activeCall ? 'Join ongoing group call' : startingCall ? 'Starting group call' : 'Start group call'}
@@ -556,6 +606,13 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
           >
             <VideoCallIcon />
           </button>
+        )}
+        {callTypePickerOpen && (
+            <CallTypePicker
+              onStart={handleStartCall}
+              onClose={() => setCallTypePickerOpen(false)}
+              starting={startingCall}
+            />
         )}
         {(chatData.canManageMembers || chatData.canManageModerators) && (
           <button

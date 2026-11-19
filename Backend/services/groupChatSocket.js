@@ -47,7 +47,7 @@ const loadSocketActor = async (socket) => {
   const identity = socket.data.user;
   if (identity.role === 'organisation') {
     const organisation = await Organisation.findById(identity.id)
-      .select('name role status isActive');
+      .select('name logo role status isActive');
 
     if (
       !organisation ||
@@ -61,12 +61,13 @@ const loadSocketActor = async (socket) => {
     return {
       id: organisation._id,
       role: organisation.role,
-      fullName: organisation.name
+      fullName: organisation.name,
+      photo: organisation.logo
     };
   }
 
   const user = await User.findById(identity.id)
-    .select('fullName role createdByOrg isSuspended isActive');
+    .select('fullName photo role createdByOrg isSuspended isActive');
 
   if (
     !user ||
@@ -81,7 +82,8 @@ const loadSocketActor = async (socket) => {
     id: user._id,
     role: user.role,
     createdByOrg: user.createdByOrg,
-    fullName: user.fullName
+    fullName: user.fullName,
+    photo: user.photo
   };
 };
 
@@ -116,6 +118,7 @@ const registerGroupChatSocket = (io) => {
         return next(new Error('Account is not authorized for group chat.'));
       }
       socket.data.user.fullName = actor.fullName;
+      if (actor.photo) socket.data.user.photo = actor.photo;
       if (actor.createdByOrg) {
         socket.data.user.createdByOrg = actor.createdByOrg.toString();
       }
@@ -409,16 +412,24 @@ const registerGroupChatSocket = (io) => {
         await socket.join(room);
         socket.data.callRooms = socket.data.callRooms || {};
         socket.data.callRooms[idString(session._id)] = room;
+        socket.data.callHasVideo = socket.data.callHasVideo || {};
+        if (typeof payload.hasVideo === 'boolean') {
+          socket.data.callHasVideo[idString(session._id)] = payload.hasVideo;
+        }
 
         const participants = existingSockets.map((participant) => ({
           socketId: participant.id,
           userId: participant.data.user.id,
-          fullName: participant.data.user.fullName
+          fullName: participant.data.user.fullName,
+          photo: participant.data.user.photo,
+          hasVideo: participant.data.callHasVideo?.[idString(session._id)]
         }));
         socket.to(room).emit('course-call:participant-joined', {
           socketId: socket.id,
           userId: actor.id.toString(),
-          fullName: actor.fullName
+          fullName: actor.fullName,
+          photo: actor.photo,
+          hasVideo: socket.data.callHasVideo[idString(session._id)]
         });
         return respond(ack, {
           success: true,
@@ -428,6 +439,37 @@ const registerGroupChatSocket = (io) => {
       } catch (err) {
         console.error('Course call join failed:', err.message);
         return respond(ack, { error: 'Unable to join this course call.' });
+      }
+    });
+
+    socket.on('course-call:media-state', async (payload = {}, ack) => {
+      try {
+        const callId = idString(payload.callSessionId);
+        const room = socket.data.callRooms?.[callId];
+        if (!room || typeof payload.hasVideo !== 'boolean') {
+          return respond(ack, { error: 'Invalid call media state.' });
+        }
+
+        const session = await CallSession.findById(callId);
+        if (!session || session.status !== 'ongoing') {
+          return respond(ack, { error: 'This call has ended.' });
+        }
+        const actor = await loadCallActor(socket.data.user);
+        const context = actor ? await getCourseCallContext(session, actor) : null;
+        if (!context?.canAccess) {
+          return respond(ack, { error: 'You are not enrolled in this course call.' });
+        }
+
+        socket.data.callHasVideo = socket.data.callHasVideo || {};
+        socket.data.callHasVideo[callId] = payload.hasVideo;
+        socket.to(room).emit('course-call:participant-media-state', {
+          socketId: socket.id,
+          hasVideo: payload.hasVideo
+        });
+        return respond(ack, { success: true });
+      } catch (err) {
+        console.error('Course call media state update failed:', err.message);
+        return respond(ack, { error: 'Unable to update call media state.' });
       }
     });
 
@@ -442,6 +484,7 @@ const registerGroupChatSocket = (io) => {
       });
       socket.leave(room);
       delete socket.data.callRooms[callId];
+      if (socket.data.callHasVideo) delete socket.data.callHasVideo[callId];
       return respond(ack, { success: true });
     });
 

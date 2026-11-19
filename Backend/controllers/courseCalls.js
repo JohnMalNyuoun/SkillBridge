@@ -51,6 +51,11 @@ const getCourseForCall = async (courseId, actor) => {
 
 const startCourseCall = async (req, res) => {
   try {
+    const callType = req.body?.callType || 'video';
+    if (!['audio', 'video'].includes(callType)) {
+      return error(res, 400, 'Call type must be audio or video.');
+    }
+
     const actor = await loadCallActor(req.user);
     if (!actor) return error(res, 403, 'Your account cannot start a course call.');
 
@@ -80,6 +85,7 @@ const startCourseCall = async (req, res) => {
         groupChatId: groupChat._id,
         roomId: crypto.randomUUID(),
         status: 'ongoing',
+        callType,
         startedBy: actor.id,
         startedByModel: actor.role === 'organisation' ? 'Organisation' : 'User',
         invitedStudents: studentIds
@@ -101,7 +107,7 @@ const startCourseCall = async (req, res) => {
       recipient: studentId,
       recipientModel: 'User',
       title: 'Course group call',
-      message: `${actor.fullName} started a call for ${course.title}.`,
+      message: `${actor.fullName} started ${callType === 'audio' ? 'an' : 'a'} ${callType} call for ${course.title}.`,
       type: 'course_call',
       reference: callSession._id,
       referenceModel: 'CallSession',
@@ -125,7 +131,8 @@ const startCourseCall = async (req, res) => {
       io.to(`group-chat:${idString(groupChat._id)}`).emit('course-call:started', {
         callSessionId: idString(callSession._id),
         courseId: idString(course._id),
-        courseTitle: course.title
+        courseTitle: course.title,
+        callType: callSession.callType
       });
       createdNotifications.forEach((notification) => {
         io.to(`user:${idString(notification.recipient)}`).emit('course-call:invitation', {
@@ -133,6 +140,7 @@ const startCourseCall = async (req, res) => {
           callSessionId: idString(callSession._id),
           courseId: idString(course._id),
           roomId: callSession.roomId,
+          callType: callSession.callType,
           title: notification.title,
           message: notification.message,
           actions: ['join', 'decline']

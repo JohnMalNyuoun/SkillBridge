@@ -11,7 +11,7 @@ const loadCallActor = async (identity) => {
 
   if (identity.role === 'organisation') {
     const organisation = await Organisation.findById(identity.id)
-      .select('name role status isActive');
+      .select('name logo role status isActive');
     if (
       !organisation ||
       !organisation.isActive ||
@@ -24,12 +24,13 @@ const loadCallActor = async (identity) => {
     return {
       id: organisation._id,
       role: organisation.role,
-      fullName: organisation.name
+      fullName: organisation.name,
+      photo: organisation.logo
     };
   }
 
   const user = await User.findById(identity.id)
-    .select('fullName role createdByOrg isSuspended isActive');
+    .select('fullName photo role createdByOrg isSuspended isActive');
   if (
     !user ||
     !user.isActive ||
@@ -52,7 +53,8 @@ const loadCallActor = async (identity) => {
     id: user._id,
     role: user.role,
     createdByOrg: user.createdByOrg,
-    fullName: user.fullName
+    fullName: user.fullName,
+    photo: user.photo
   };
 };
 

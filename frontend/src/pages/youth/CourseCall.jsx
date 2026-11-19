@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import useAuth from '../../hooks/useAuth';
 import { endCallSession, getCallSession } from '../../services/courseCallService';
 import { SOCKET_URL } from '../../utils/constants';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
 const iceServers = [{ urls: 'stun:stun.l.google.com:19302' }];
 
@@ -16,17 +17,61 @@ const getCourseReturnPath = (role, courseId) => {
   return courseId ? `/org/group-chats/${courseId}` : '/org/group-chats';
 };
 
-const RemoteVideo = ({ stream, name }) => {
+const getInitials = (name) => (
+  (name || 'Participant')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0].toUpperCase())
+    .join('')
+);
+
+const ParticipantAvatar = ({ name, photo }) => {
+  const [failedPhoto, setFailedPhoto] = useState('');
+  const imageUrl = photo ? resolveImageUrl(photo) : '';
+  if (imageUrl && failedPhoto !== imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        onError={() => setFailedPhoto(imageUrl)}
+        style={{
+          width: '104px',
+          height: '104px',
+          borderRadius: '50%',
+          objectFit: 'cover',
+          border: '3px solid rgba(255,255,255,0.8)'
+        }}
+      />
+    );
+  }
+
+  return (
+    <div aria-hidden="true" style={{
+      width: '104px',
+      height: '104px',
+      display: 'grid',
+      placeItems: 'center',
+      borderRadius: '50%',
+      background: '#315b4a',
+      color: '#fff',
+      fontSize: '1.8rem',
+      fontWeight: 800
+    }}>
+      {getInitials(name)}
+    </div>
+  );
+};
+
+const RemoteVideo = ({ stream, name, photo, hasVideo }) => {
   const videoRef = useRef(null);
   const audioRef = useRef(null);
-  const [hasVideo, setHasVideo] = useState(false);
+  const [hasLiveVideo, setHasLiveVideo] = useState(false);
 
   useEffect(() => {
     const videoTracks = stream.getVideoTracks();
     const updateVideoState = () => {
-      setHasVideo(videoTracks.some((track) => (
-        track.readyState === 'live' && !track.muted && track.enabled
-      )));
+      setHasLiveVideo(videoTracks.some((track) => track.readyState === 'live'));
     };
     videoTracks.forEach((track) => {
       track.addEventListener('mute', updateVideoState);
@@ -46,10 +91,13 @@ const RemoteVideo = ({ stream, name }) => {
     };
   }, [stream]);
 
+  const showVideo = hasLiveVideo && hasVideo !== false;
+
   return (
     <div style={{
       position: 'relative',
       minHeight: '220px',
+      aspectRatio: '16 / 9',
       background: '#111827',
       borderRadius: '12px',
       overflow: 'hidden'
@@ -60,22 +108,23 @@ const RemoteVideo = ({ stream, name }) => {
         muted
         playsInline
         style={{
-          display: hasVideo ? 'block' : 'none',
+          display: showVideo ? 'block' : 'none',
+          position: 'absolute',
+          inset: 0,
           width: '100%',
           height: '100%',
           objectFit: 'cover'
         }}
       />
       <audio ref={audioRef} autoPlay style={{ display: 'none' }} />
-      {!hasVideo && (
+      {!showVideo && (
         <div style={{
           display: 'grid',
           placeItems: 'center',
-          minHeight: '220px',
-          color: '#fff',
-          fontSize: '0.9rem'
+          position: 'absolute',
+          inset: 0
         }}>
-          Audio only
+          <ParticipantAvatar name={name} photo={photo} />
         </div>
       )}
       <span style={{
@@ -97,6 +146,7 @@ const RemoteVideo = ({ stream, name }) => {
 const CourseCall = () => {
   const { id: callSessionId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { token, user } = useAuth();
   const [callData, setCallData] = useState(null);
   const [localStream, setLocalStream] = useState(null);
@@ -105,7 +155,11 @@ const CourseCall = () => {
   const [connected, setConnected] = useState(false);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
-  const [callMode, setCallMode] = useState(null);
+  const [callMode, setCallMode] = useState(() => (
+    ['audio', 'video'].includes(location.state?.initialMode)
+      ? location.state.initialMode
+      : null
+  ));
   const [joinAttempt, setJoinAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [ending, setEnding] = useState(false);
@@ -159,6 +213,9 @@ const CourseCall = () => {
       localStreamRef.current?.getTracks().forEach((track) => {
         peerConnection.addTrack(track, localStreamRef.current);
       });
+      if (!localStreamRef.current?.getVideoTracks().some((track) => track.readyState === 'live')) {
+        peerConnection.addTransceiver('video', { direction: 'recvonly' });
+      }
       peerConnection.onicecandidate = (event) => {
         if (event.candidate) sendSignal(peerSocketId, { candidate: event.candidate });
       };
@@ -254,7 +311,10 @@ const CourseCall = () => {
         socket = io(SOCKET_URL, { auth: { token }, withCredentials: true });
         socketRef.current = socket;
         socket.on('connect', () => {
-          socket.emit('course-call:join', { callSessionId }, (result) => {
+          const localHasVideo = mediaStream.getVideoTracks().some((track) => (
+            track.readyState === 'live' && track.enabled
+          ));
+          socket.emit('course-call:join', { callSessionId, hasVideo: localHasVideo }, (result) => {
             if (result?.error) {
               setError(result.error);
               return;
@@ -262,7 +322,13 @@ const CourseCall = () => {
             setConnected(true);
             setError('');
             setParticipants([
-              { socketId: socket.id, fullName: user?.fullName || 'You', local: true },
+              {
+                socketId: socket.id,
+                fullName: user?.fullName || 'You',
+                photo: user?.photo,
+                hasVideo: localHasVideo,
+                local: true
+              },
               ...(result.participants || [])
             ]);
             (result.participants || []).forEach((participant) => {
@@ -293,6 +359,13 @@ const CourseCall = () => {
             }
           }
         });
+        socket.on('course-call:participant-media-state', ({ socketId, hasVideo }) => {
+          setParticipants((current) => current.map((participant) => (
+            participant.socketId === socketId
+              ? { ...participant, hasVideo }
+              : participant
+          )));
+        });
         socket.on('course-call:participant-left', ({ socketId }) => removePeer(socketId));
         socket.on('course-call:signal', handleSignal);
         socket.on('course-call:ended', ({ courseId }) => {
@@ -320,7 +393,7 @@ const CourseCall = () => {
       mediaStream?.getTracks().forEach((track) => track.stop());
       localStreamRef.current = null;
     };
-  }, [callMode, callSessionId, joinAttempt, navigate, token, user?.fullName, user?.role]);
+  }, [callMode, callSessionId, joinAttempt, navigate, token, user?.fullName, user?.photo, user?.role]);
 
   useEffect(() => {
     if (localVideoRef.current) {
@@ -387,6 +460,19 @@ const CourseCall = () => {
       track.enabled = !nextCameraOff;
     });
     setCameraOff(nextCameraOff);
+    const hasVideo = !nextCameraOff;
+    setParticipants((current) => current.map((participant) => (
+      participant.local ? { ...participant, hasVideo } : participant
+    )));
+    const socket = socketRef.current;
+    if (socket?.connected) {
+      socket.emit('course-call:media-state', {
+        callSessionId,
+        hasVideo
+      }, (result) => {
+        if (result?.error) setError(result.error);
+      });
+    }
   };
 
   if (loading) return <Loader />;
@@ -403,7 +489,7 @@ const CourseCall = () => {
             {callData.course?.title || 'Course group call'}
           </h1>
           <p style={{ color: 'var(--text-secondary)', margin: '12px 0 20px' }}>
-            Choose how you want to join. You can switch between audio and video during the call.
+            This call started as a {callData.callSession.callType || 'video'} call. Choose how you want to join; you can switch between audio and video during the call.
           </p>
           {error && (
             <p role="alert" style={{ color: 'var(--danger-text)', padding: '10px 0' }}>
@@ -462,6 +548,7 @@ const CourseCall = () => {
           <div style={{
             position: 'relative',
             minHeight: '220px',
+            aspectRatio: '16 / 9',
             background: '#111827',
             borderRadius: '12px',
             overflow: 'hidden'
@@ -472,17 +559,25 @@ const CourseCall = () => {
                 autoPlay
                 muted
                 playsInline
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
               />
             ) : (
               <div style={{
                 display: 'grid',
                 placeItems: 'center',
-                minHeight: '220px',
-                color: '#fff',
-                fontSize: '0.9rem'
+                position: 'absolute',
+                inset: 0
               }}>
-                {callMode === 'audio' ? 'Audio only' : 'Camera is off'}
+                <ParticipantAvatar
+                  name={user?.fullName || 'You'}
+                  photo={user?.photo}
+                />
               </div>
             )}
             <span style={{
@@ -505,6 +600,8 @@ const CourseCall = () => {
                 key={socketId}
                 stream={stream}
                 name={participant?.fullName}
+                photo={participant?.photo}
+                hasVideo={participant?.hasVideo}
               />
             );
           })}

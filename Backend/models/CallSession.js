@@ -22,6 +22,12 @@ const callSessionSchema = new mongoose.Schema({
     default: 'ongoing',
     required: true
   },
+  callType: {
+    type: String,
+    enum: ['audio', 'video'],
+    default: 'video',
+    required: true
+  },
   startedBy: {
     type: mongoose.Schema.Types.ObjectId,
     refPath: 'startedByModel',
