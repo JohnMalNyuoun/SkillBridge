@@ -53,6 +53,11 @@ export const NotificationProvider = ({ children }) => {
 			setCallInvitation({ ...invitation, recipientUserId: user.id });
 			void fetchUnreadCount();
 		});
+		socket.on('course-call:ended', ({ callSessionId }) => {
+			setCallInvitation((current) => (
+				current?.callSessionId === callSessionId ? null : current
+			));
+		});
 		socket.on('notification:new', () => {
 			void fetchUnreadCount();
 		});

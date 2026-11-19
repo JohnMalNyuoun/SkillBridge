@@ -12,7 +12,11 @@ import {
   updateGroupChatModerators
 } from '../../services/courseService';
 import { SOCKET_URL } from '../../utils/constants';
-import { startCourseCall } from '../../services/courseCallService';
+import {
+  getActiveCourseCall,
+  getCallSession,
+  startCourseCall
+} from '../../services/courseCallService';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '👏'];
@@ -43,6 +47,9 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [startingCall, setStartingCall] = useState(false);
+  const [activeCall, setActiveCall] = useState(null);
+  const [joiningCallId, setJoiningCallId] = useState('');
+  const [callStatusError, setCallStatusError] = useState('');
   const [sending, setSending] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -59,6 +66,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingTimersRef = useRef(new Map());
+  const callStatusRevisionRef = useRef(0);
   const navigate = useNavigate();
   const currentUserId = String(user?.id || user?._id || '');
 
@@ -92,6 +100,33 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
       active = false;
     };
   }, [courseId, reloadKey]);
+
+  useEffect(() => {
+    let active = true;
+    const refreshActiveCall = async () => {
+      const requestRevision = callStatusRevisionRef.current;
+      try {
+        const response = await getActiveCourseCall(courseId);
+        if (active && requestRevision === callStatusRevisionRef.current) {
+          setActiveCall(response.data.callSession || null);
+          setCallStatusError('');
+        }
+      } catch (err) {
+        if (active) {
+          setCallStatusError(
+            err.response?.data?.message || 'Unable to check for an ongoing call.'
+          );
+        }
+      }
+    };
+
+    void refreshActiveCall();
+    const interval = window.setInterval(refreshActiveCall, 15000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [courseId]);
 
   useEffect(() => {
     const typingTimers = typingTimersRef.current;
@@ -164,6 +199,19 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
       setError('Your access to this discussion was removed.');
       socket.disconnect();
     });
+    socket.on('course-call:started', ({ callSessionId, courseId: startedCourseId }) => {
+      if (String(startedCourseId) !== String(courseId)) return;
+      callStatusRevisionRef.current += 1;
+      setActiveCall({ _id: callSessionId, status: 'ongoing' });
+      setCallStatusError('');
+    });
+    socket.on('course-call:ended', ({ callSessionId, courseId: endedCourseId }) => {
+      if (String(endedCourseId) !== String(courseId)) return;
+      callStatusRevisionRef.current += 1;
+      setActiveCall((current) => (
+        current?._id === callSessionId ? null : current
+      ));
+    });
 
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -199,11 +247,31 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
     setError('');
     try {
       const response = await startCourseCall(courseId);
+      setActiveCall(response.data.callSession);
       navigate(`/calls/${response.data.callSession._id}`);
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to start a course call.');
     } finally {
       setStartingCall(false);
+    }
+  };
+
+  const handleJoinActiveCall = async (callSessionId) => {
+    if (!callSessionId) return;
+    setJoiningCallId(callSessionId);
+    setCallStatusError('');
+    try {
+      const response = await getCallSession(callSessionId);
+      if (response.data.callSession.status === 'ongoing') {
+        navigate(`/calls/${callSessionId}`);
+      } else {
+        setActiveCall(null);
+        setCallStatusError('This call has ended.');
+      }
+    } catch (err) {
+      setCallStatusError(err.response?.data?.message || 'Unable to join this call.');
+    } finally {
+      setJoiningCallId('');
     }
   };
 
@@ -385,7 +453,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
               marginLeft: isOrgAdmin ? '8px' : 0,
               color: 'var(--text-on-primary)',
               background: 'var(--fb-blue)',
-              cursor: startingCall ? 'wait' : 'pointer'
+              cursor: startingCall || joiningCallId === activeCall?._id ? 'wait' : 'pointer'
             }}
           >
             <VideoCallIcon />
@@ -403,6 +471,48 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
 
   return (
     <section aria-label={groupChatName} style={{ marginTop: '24px', color: 'var(--text-primary)' }}>
+      {activeCall && (
+        <aside role="status" aria-label="Ongoing group call" style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          flexWrap: 'wrap',
+          marginBottom: '14px',
+          padding: '12px 14px',
+          border: '1px solid var(--success-primary)',
+          borderRadius: '12px',
+          background: 'var(--success-bg)'
+        }}>
+          <div>
+            <strong style={{ color: 'var(--success-text)' }}>Ongoing group call</strong>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '3px' }}>
+              Join the live call for {groupChatName}.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleJoinActiveCall(activeCall._id)}
+            disabled={joiningCallId === activeCall._id}
+            style={{
+              border: 0,
+              borderRadius: '9px',
+              padding: '9px 14px',
+              color: 'var(--text-on-primary)',
+              background: 'var(--success-primary)',
+              fontWeight: 800,
+              cursor: joiningCallId === activeCall._id ? 'wait' : 'pointer'
+            }}
+          >
+            {joiningCallId === activeCall._id ? 'Joining…' : 'Join call'}
+          </button>
+        </aside>
+      )}
+      {callStatusError && (
+        <p role="alert" style={{ color: 'var(--danger-text)', marginBottom: '12px' }}>
+          {callStatusError}
+        </p>
+      )}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -424,10 +534,14 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
         {canStartCall && (
           <button
             type="button"
-            onClick={handleStartCall}
-            disabled={startingCall}
-            aria-label={startingCall ? 'Starting group call' : 'Start group call'}
-            title={startingCall ? 'Starting group call' : 'Start group call'}
+            onClick={() => (
+              activeCall
+                ? handleJoinActiveCall(activeCall._id)
+                : handleStartCall()
+            )}
+            disabled={startingCall || joiningCallId === activeCall?._id}
+            aria-label={activeCall ? 'Join ongoing group call' : startingCall ? 'Starting group call' : 'Start group call'}
+            title={activeCall ? 'Join ongoing group call' : startingCall ? 'Starting group call' : 'Start group call'}
             style={{
               border: 0,
               borderRadius: '50%',

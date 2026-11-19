@@ -10,6 +10,7 @@ const { success, error } = require('../utils/apiResponse');
 const {
   idString,
   loadCallActor,
+  getCourseCallContext,
   findAccessibleCall
 } = require('../services/courseCallAccess');
 
@@ -76,10 +77,12 @@ const startCourseCall = async (req, res) => {
     try {
       callSession = await CallSession.create({
         courseId: course._id,
+        groupChatId: groupChat._id,
         roomId: crypto.randomUUID(),
         status: 'ongoing',
         startedBy: actor.id,
-        startedByModel: actor.role === 'organisation' ? 'Organisation' : 'User'
+        startedByModel: actor.role === 'organisation' ? 'Organisation' : 'User',
+        invitedStudents: studentIds
       });
     } catch (err) {
       if (err.code !== 11000) throw err;
@@ -119,6 +122,11 @@ const startCourseCall = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      io.to(`group-chat:${idString(groupChat._id)}`).emit('course-call:started', {
+        callSessionId: idString(callSession._id),
+        courseId: idString(course._id),
+        courseTitle: course.title
+      });
       createdNotifications.forEach((notification) => {
         io.to(`user:${idString(notification.recipient)}`).emit('course-call:invitation', {
           notificationId: idString(notification._id),
@@ -166,6 +174,40 @@ const getCallSession = async (req, res) => {
   }
 };
 
+const getActiveCourseCall = async (req, res) => {
+  try {
+    if (!mongoose.isObjectIdOrHexString(req.params.courseId)) {
+      return error(res, 400, 'Invalid course ID.');
+    }
+
+    const actor = await loadCallActor(req.user);
+    if (!actor) return error(res, 403, 'Your account cannot access course calls.');
+
+    const callSession = await CallSession.findOne({
+      courseId: req.params.courseId,
+      status: 'ongoing'
+    });
+    const context = await getCourseCallContext(
+      callSession || { courseId: req.params.courseId },
+      actor
+    );
+    if (!context.course || !context.canAccess) {
+      return error(res, 404, 'Course call not found.');
+    }
+
+    return success(res, 200, 'Active course call fetched.', {
+      callSession,
+      course: {
+        _id: context.course._id,
+        title: context.course.title
+      },
+      canEndCall: context.canEnd
+    });
+  } catch (err) {
+    return error(res, 500, err.message);
+  }
+};
+
 const endCallSession = async (req, res) => {
   try {
     if (!mongoose.isObjectIdOrHexString(req.params.id)) {
@@ -190,9 +232,17 @@ const endCallSession = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`course-call:${accessibleCall.session.roomId}`).emit('course-call:ended', {
+      const event = {
         callSessionId: idString(accessibleCall.session._id),
         courseId: idString(accessibleCall.course._id)
+      };
+      io.to(`course-call:${accessibleCall.session.roomId}`).emit('course-call:ended', event);
+      const groupChatId = accessibleCall.session.groupChatId || accessibleCall.course.groupChatId;
+      if (groupChatId) {
+        io.to(`group-chat:${idString(groupChatId)}`).emit('course-call:ended', event);
+      }
+      (accessibleCall.session.invitedStudents || []).forEach((studentId) => {
+        io.to(`user:${idString(studentId)}`).emit('course-call:ended', event);
       });
     }
 
@@ -239,6 +289,7 @@ const declineCallSession = async (req, res) => {
 module.exports = {
   startCourseCall,
   getCallSession,
+  getActiveCourseCall,
   endCallSession,
   declineCallSession
 };

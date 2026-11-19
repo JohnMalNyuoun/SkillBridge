@@ -58,7 +58,7 @@ const loadCallActor = async (identity) => {
 
 const getCourseCallContext = async (session, actor) => {
   const course = await Course.findById(session.courseId)
-    .select('title organisation enrolledStudents');
+    .select('title organisation enrolledStudents groupChatId');
   if (!course) return { course: null, canAccess: false, canEnd: false };
 
   const isOrgOwner = actor.role === 'organisation'

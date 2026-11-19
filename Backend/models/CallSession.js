@@ -7,6 +7,10 @@ const callSessionSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  groupChatId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GroupChat'
+  },
   roomId: {
     type: String,
     required: true,
@@ -28,6 +32,10 @@ const callSessionSchema = new mongoose.Schema({
     enum: ['User', 'Organisation'],
     required: true
   },
+  invitedStudents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   declinedBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

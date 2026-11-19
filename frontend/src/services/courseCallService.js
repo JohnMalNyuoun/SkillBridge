@@ -10,6 +10,11 @@ export const getCallSession = async (callSessionId) => {
   return response.data;
 };
 
+export const getActiveCourseCall = async (courseId) => {
+  const response = await api.get(`/call-sessions/course/${courseId}/active`);
+  return response.data;
+};
+
 export const endCallSession = async (callSessionId) => {
   const response = await api.post(`/call-sessions/${callSessionId}/end`);
   return response.data;
