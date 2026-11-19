@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import Button from '../../components/common/Button';
 import ShareButton from '../../components/common/ShareButton';
+import useAuth from '../../hooks/useAuth';
 import {
   getOrgCourses,
   getOrgDiscoverCourses,
@@ -16,6 +17,8 @@ import { COURSE_CATEGORIES } from '../../utils/constants';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
 const Courses = () => {
+  const { user } = useAuth();
+  const canManageCourses = user?.role === 'organisation';
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
@@ -183,7 +186,7 @@ const Courses = () => {
       </div>
 
       <div className="fh-container">
-        <section
+        {canManageCourses && <section
           aria-label="Create a course post"
           style={{
             display: 'flex',
@@ -226,7 +229,7 @@ const Courses = () => {
           <Link to="/org/courses/new" className="fh-mobile-full" style={{ display: 'inline-block' }}>
             <Button className="fh-mobile-full">+ Post a Course</Button>
           </Link>
-        </section>
+        </section>}
 
         <nav
           aria-label="Course views"
@@ -252,7 +255,7 @@ const Courses = () => {
           >
             My courses
           </button>
-          <button
+          {canManageCourses && <button
             type="button"
             aria-current={activeTab === 'discover' ? 'page' : undefined}
             onClick={openDiscoverFeed}
@@ -266,7 +269,7 @@ const Courses = () => {
             }}
           >
             Discover organisations
-          </button>
+          </button>}
         </nav>
 
         {activeTab === 'discover' ? (
@@ -473,9 +476,11 @@ const Courses = () => {
             <p style={{ fontSize: '1.1rem', marginBottom: '16px' }}>
               No courses posted yet
             </p>
-            <Link to="/org/courses/new">
-              <Button>Post Your First Course</Button>
-            </Link>
+            {canManageCourses && (
+              <Link to="/org/courses/new">
+                <Button>Post Your First Course</Button>
+              </Link>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -557,7 +562,7 @@ const Courses = () => {
                                 View
                               </Link>
 
-                              {course.status !== 'published' && (
+                              {canManageCourses && course.status !== 'published' && (
                                 <Link
                                   to={`/org/courses/${course._id}/edit`}
                                   style={{
@@ -575,7 +580,7 @@ const Courses = () => {
                                 </Link>
                               )}
 
-                              {course.status === 'draft' && (
+                              {canManageCourses && course.status === 'draft' && (
                                 <>
                                   <Button
                                     loading={actionLoading === course._id + '_publish'}
@@ -594,7 +599,7 @@ const Courses = () => {
                                   </Button>
                                 </>
                               )}
-                              {course.status === 'published' && (
+                              {canManageCourses && course.status === 'published' && (
                                 <>
                                   {isPublic && (
                                     <ShareButton

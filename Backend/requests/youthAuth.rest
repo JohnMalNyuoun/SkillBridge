@@ -17,8 +17,8 @@ POST http://localhost:5000/api/auth/youth/login
 Content-Type: application/json
 
 {
-  "email": "john.mal@example.com",
-  "password": "password123"
+  "email": "test@gmail.com",
+  "password": "123456"
 }
 
 ###

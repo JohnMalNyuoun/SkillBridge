@@ -144,6 +144,7 @@ const Applications = () => {
               const stageIndex = getStageIndex(app.status);
               const isRejected = app.status === 'rejected';
               const isWithdrawn = app.status === 'withdrawn';
+              const isEnrolled = app.status === 'accepted' || app.completionStatus === 'enrolled';
               const timeline = Array.isArray(app.timeline) ? app.timeline : [];
 
               return (
@@ -415,6 +416,15 @@ const Applications = () => {
                           </span>
                         ))}
                       </div>
+
+                      {isEnrolled && app.course?._id && (
+                        <Button
+                          onClick={() => navigate(`/group-chats/${app.course._id}`)}
+                          style={{ width: '100%', marginBottom: '14px' }}
+                        >
+                          Open group chat
+                        </Button>
+                      )}
 
                       {/* Withdraw button */}
                       {['submitted', 'under_review', 'shortlisted'].includes(app.status) && (

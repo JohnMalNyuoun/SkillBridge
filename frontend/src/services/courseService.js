@@ -64,3 +64,46 @@ export const deleteCourse = async (id) => {
   const response = await api.delete(`/org/courses/${id}`);
   return response.data;
 };
+
+export const getCourseGroupChat = async (courseId) => {
+  const response = await api.get(`/org/courses/${courseId}/group-chat`);
+  return response.data;
+};
+
+export const createCourseGroupChat = async (courseId) => {
+  const response = await api.post(`/org/courses/${courseId}/group-chat`);
+  return response.data;
+};
+
+export const updateGroupChatModerators = async (courseId, data) => {
+  const response = await api.patch(`/org/courses/${courseId}/group-chat/moderators`, data);
+  return response.data;
+};
+
+export const updateGroupChatMembers = async (courseId, data) => {
+  const response = await api.patch(`/org/courses/${courseId}/group-chat/members`, data);
+  return response.data;
+};
+
+export const uploadGroupChatAttachment = async (courseId, file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  const response = await api.post(
+    `/org/courses/${courseId}/group-chat/attachments`,
+    formData
+  );
+  return response.data;
+};
+
+export const downloadGroupChatAttachment = async (courseId, attachmentId) => {
+  const response = await api.get(
+    `/org/courses/${courseId}/group-chat/attachments/${attachmentId}`,
+    { responseType: 'blob' }
+  );
+  return response.data;
+};
+
+export const getChatMemberProfile = async (userId) => {
+  const response = await api.get(`/profiles/member/${userId}`);
+  return response.data;
+};

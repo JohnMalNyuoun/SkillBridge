@@ -5,6 +5,7 @@ import useAuth from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
 import { getAdminProfile, removeAdminPhoto, updateAdminPhoto } from '../../services/adminProfileService';
 import { resolveImageUrl } from '../../utils/imageUrl';
+import { getUserTheme, saveUserTheme } from '../../utils/themePreference';
 
 const SETTINGS_KEY = 'fh_settings_admin_tab';
 
@@ -21,7 +22,7 @@ const AdminSettings = () => {
   const photoInputRef = useRef(null);
   const [settings, setSettings] = useState(() => {
     const initialSettings = {
-      theme: 'dark',
+      theme: getUserTheme(user),
       language,
       alerts: {
         orgRequests: true,
@@ -36,6 +37,7 @@ const AdminSettings = () => {
       return {
         ...initialSettings,
         ...parsed,
+        theme: getUserTheme(user),
         alerts: {
           ...initialSettings.alerts,
           ...(parsed.alerts || {})
@@ -316,10 +318,10 @@ const AdminSettings = () => {
             <button
               type="button"
               onClick={() => {
-                setSettings((current) => ({
-                  ...current,
-                  theme: current.theme === 'dark' ? 'light' : 'dark'
-                }));
+                const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
+                saveUserTheme(user, nextTheme);
+                updateUser({ theme: nextTheme });
+                setSettings((current) => ({ ...current, theme: nextTheme }));
                 setNotice('Theme updated.');
               }}
               role="switch"

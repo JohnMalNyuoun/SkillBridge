@@ -19,4 +19,33 @@ const uploadProfile = multer(commonConfig);
 const uploadLogo = multer(commonConfig);
 const uploadCourseImage = multer(commonConfig);
 
-module.exports = { uploadProfile, uploadLogo, uploadCourseImage };
+const allowedGroupChatAttachmentTypes = [
+  ...allowedMimeTypes,
+  'application/pdf',
+  'text/plain',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+];
+
+const groupChatAttachmentFilter = (req, file, cb) => {
+  if (allowedGroupChatAttachmentTypes.includes(file.mimetype)) {
+    return cb(null, true);
+  }
+  return cb(new Error('Use an image, PDF, text, CSV, Word, or Excel file.'));
+};
+
+const uploadGroupChatAttachment = multer({
+  storage: multer.memoryStorage(),
+  fileFilter: groupChatAttachmentFilter,
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+module.exports = {
+  uploadProfile,
+  uploadLogo,
+  uploadCourseImage,
+  uploadGroupChatAttachment
+};

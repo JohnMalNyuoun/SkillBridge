@@ -5,7 +5,6 @@ const generateToken = require('../../utils/generateToken');
 const { success, error } = require('../../utils/apiResponse');
 const { notify } = require('../../services/notificationService');
 const posthog = require('../../config/posthog');
-const { sendCode } = require('../../services/verificationCodeService');
 
 // @desc    Register organisation
 // @route   POST /api/auth/org/register
@@ -47,15 +46,9 @@ const registerOrg = async (req, res) => {
       description,
       phoneNumber,
       location,
-      website
+      website,
+      isVerified: true
     });
-
-    try {
-      await sendCode(org, 'emailVerification');
-    } catch (mailError) {
-      await org.deleteOne();
-      throw mailError;
-    }
 
     posthog.capture({
       distinctId: org._id.toString(),
@@ -67,7 +60,7 @@ const registerOrg = async (req, res) => {
       }
     });
 
-    return success(res, 201, 'A six-digit verification code was sent to your email address.', {
+    return success(res, 201, 'Registration submitted. Your organisation account is awaiting admin approval.', {
       email: org.email,
       accountType: 'organisation'
     });

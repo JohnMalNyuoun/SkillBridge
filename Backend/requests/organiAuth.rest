@@ -6,7 +6,7 @@ Content-Type: application/json
 {
   "name": "K-Node Kakuma",
   "email": "knode@gmail.com",
-  "password": "123456",
+  "password": "Johnmal123",
   "type": "CBO",
   "description": "Providing tech education to youth in Kakuma",
   "phoneNumber": "+254700000000",
@@ -19,9 +19,9 @@ POST http://localhost:5000/api/auth/org/register
 Content-Type: application/json
 
 {
-  "name": "K-Node Kakuma",
-  "email": "knode@gmail.com",
-  "password": "123456",
+  "name": "MILES",
+  "email": "miles@gmail.com",
+  "password": "Johnmal123",
   "type": "CBO",
   "description": "Providing tech education to youth in Kakuma",
   "phoneNumber": "+254700000000",
@@ -34,5 +34,5 @@ Content-Type: application/json
 
 {
   "email": "knode@gmail.com",
-  "password": "123456"
+  "password": "Johnmal123"
 }

@@ -29,8 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   communityType: {
     type: String,
-    enum: ['refugee', 'host_community'],
-    required: true
+    enum: ['refugee', 'host_community']
   },
   age: {
     type: Number
@@ -71,10 +70,18 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isSuspended: {
+    type: Boolean,
+    default: false
+  },
   role: {
     type: String,
-    enum: ['youth', 'admin'],
+    enum: ['youth', 'trainee', 'staff', 'org_admin', 'admin'],
     default: 'youth'
+  },
+  createdByOrg: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Organisation'
   },
   photo: {
     type: String,

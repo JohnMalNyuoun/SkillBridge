@@ -66,6 +66,13 @@ const Icon = ({ name, active = false, size = 24 }) => {
           <path d="M16 14.5c2.6 0 4.5 1.6 5 4" />
         </svg>
       );
+    case 'chat':
+      return (
+        <svg {...common}>
+          <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5H6l-3 2v-6.5A7.5 7.5 0 1 1 20 11.5Z" fill={fill} />
+          <path d="M8 11h8M8 14h5" />
+        </svg>
+      );
     case 'trending':
       return (
         <svg {...common}>
@@ -95,13 +102,6 @@ const Icon = ({ name, active = false, size = 24 }) => {
           <path d="M5 12h11" />
         </svg>
       );
-    case 'refresh':
-      return (
-        <svg {...common}>
-          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-          <path d="M21 3v6h-6" />
-        </svg>
-      );
     case 'settings':
       return (
         <svg {...common}>
@@ -129,46 +129,41 @@ const Navbar = () => {
   const location = useLocation();
   const { t } = useLanguage();
 
-  const triggerRouteRefresh = (path) => {
-    navigate(path, {
-      replace: true,
-      state: { __refreshNonce: Date.now() }
-    });
+  const handleNavClick = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleNavClick = (e, path) => {
-    if (location.pathname === path) {
-      e.preventDefault();
-      triggerRouteRefresh(path);
-      return;
-    }
-
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleRefresh = () => {
-    triggerRouteRefresh(location.pathname);
   };
 
   const getMenuPath = () => {
-    if (user?.role === 'organisation') return '/org/settings';
+    if (['organisation', 'org_admin', 'staff', 'trainee'].includes(user?.role)) {
+      return user.role === 'organisation' ? '/org/settings' : '/org/courses';
+    }
     if (user?.role === 'admin') return '/admin/settings';
     return '/settings';
   };
 
   const youthLinks = [
     { label: t('nav.home'),         path: '/home',          icon: 'home' },
-    { label: t('nav.courses'),      path: '/courses',       icon: 'book' },
+    { label: 'My Courses', path: '/my-courses', icon: 'clipboard' },
+    { label: 'Group Chats', path: '/group-chats', icon: 'chat' },
     { label: t('nav.notifications'), path: '/notifications', icon: 'bell' }
   ];
 
   const orgLinks = [
     { label: t('nav.dashboard'),    path: '/org/dashboard',    icon: 'grid' },
     { label: t('nav.courses'),      path: '/org/courses',      icon: 'book' },
-    { label: t('nav.applications'),   path: '/org/applications', icon: 'users' },
+    { label: 'Group Chats', path: '/org/group-chats', icon: 'chat' },
     { label: t('nav.notifications'), path: '/org/notifications', icon: 'bell' },
     { label: t('profile.helpSupport'),       path: '/org/impact',       icon: 'trending' }
+  ];
+
+  const orgTeamLinks = [
+    { label: t('nav.courses'), path: '/org/courses', icon: 'book' },
+    { label: 'Group Chats', path: '/org/group-chats', icon: 'chat' }
+  ];
+
+  const orgAdminLinks = [
+    { label: t('nav.dashboard'), path: '/org/dashboard', icon: 'grid' },
+    ...orgTeamLinks
   ];
 
   const adminLinks = [
@@ -181,18 +176,29 @@ const Navbar = () => {
 
   const links = user?.role === 'organisation'
     ? orgLinks
+    : user?.role === 'org_admin'
+    ? orgAdminLinks
+    : ['staff', 'trainee'].includes(user?.role)
+    ? orgTeamLinks
     : user?.role === 'admin'
     ? adminLinks
     : youthLinks;
 
   const homePath =
-    user?.role === 'organisation' ? '/org/dashboard' :
+    user?.role === 'organisation' || user?.role === 'org_admin' ? '/org/dashboard' :
+    ['staff', 'trainee'].includes(user?.role) ? '/org/courses' :
     user?.role === 'admin' ? '/admin/dashboard' : '/home';
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (path) => location.pathname === path
+    || (path === '/group-chats' && (
+      location.pathname.startsWith('/group-chats/')
+      || (location.pathname.startsWith('/courses/') && location.pathname.endsWith('/discussion'))
+    ))
+    || (['/group-chats', '/org/group-chats'].includes(path)
+      && location.pathname.startsWith(`${path}/`));
 
   const currentLabel =
-    links.find(l => l.path === location.pathname)?.label || '';
+    links.find(l => isActive(l.path))?.label || '';
 
   const leftLinks = links.slice(0, Math.ceil(links.length / 2));
   const rightLinks = links.slice(Math.ceil(links.length / 2));
@@ -296,34 +302,6 @@ const Navbar = () => {
             );
           })}
 
-          <button
-            type="button"
-            onClick={handleRefresh}
-            title="Refresh page"
-            aria-label="Refresh page"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '36px',
-              height: '36px',
-              color: 'var(--fb-blue)',
-              background: 'var(--fb-blue-subtle)',
-              border: '1px solid var(--fb-blue)',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(24, 119, 242, 0.2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(24, 119, 242, 0.12)';
-            }}
-          >
-            <Icon name="refresh" size={16} />
-          </button>
-
           {rightLinks.map(link => {
             const active = isActive(link.path);
             const isNotificationsLink = link.path === '/notifications' || link.path === '/admin/notifications';
@@ -374,7 +352,7 @@ const Navbar = () => {
 
         {/* User cluster */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          {(user?.role === 'youth' || user?.role === 'organisation' || user?.role === 'admin') && (
+          {(['youth', 'organisation', 'admin', 'org_admin', 'staff', 'trainee'].includes(user?.role)) && (
             <button
               onClick={() => navigate(getMenuPath())}
               title="Menu"
@@ -452,7 +430,7 @@ const Navbar = () => {
         </Link>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {(user?.role === 'youth' || user?.role === 'organisation' || user?.role === 'admin') && (
+          {(['youth', 'organisation', 'admin', 'org_admin', 'staff', 'trainee'].includes(user?.role)) && (
             <button
               onClick={() => navigate(getMenuPath())}
               aria-label="Menu"

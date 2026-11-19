@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import {
-  orgRegister,
-  resendRegistrationCode,
-  verifyRegistrationEmail
-} from '../../services/authService';
+import { orgRegister } from '../../services/authService';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import { ORG_TYPES } from '../../utils/constants';
@@ -23,8 +19,6 @@ const OrgRegister = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [awaitingVerification, setAwaitingVerification] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -37,42 +31,10 @@ const OrgRegister = () => {
     setLoading(true);
 
     try {
-      await orgRegister(form);
-      setAwaitingVerification(true);
-      setVerificationCode('');
+      const response = await orgRegister(form);
+      setSuccess(response.message);
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      await verifyRegistrationEmail({
-        email: form.email,
-        accountType: 'organisation',
-        code: verificationCode
-      });
-      setAwaitingVerification(false);
-      setSuccess('Email verified. Your organisation registration is awaiting admin approval.');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Email verification failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      await resendRegistrationCode({ email: form.email, accountType: 'organisation' });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Could not resend verification code');
     } finally {
       setLoading(false);
     }
@@ -165,7 +127,7 @@ const OrgRegister = () => {
           </div>
         )}
 
-        {!success && !awaitingVerification && (
+        {!success && (
           <form onSubmit={handleSubmit}>
             <Input
               label="Organisation Name"
@@ -297,30 +259,6 @@ const OrgRegister = () => {
               style={{ marginTop: '8px' }}
             >
               Submit Registration
-            </Button>
-          </form>
-        )}
-
-        {awaitingVerification && (
-          <form onSubmit={handleVerify}>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Enter the six-digit code sent to {form.email}. The code expires in 10 minutes.
-            </p>
-            <Input
-              label="Email verification code"
-              type="text"
-              name="verificationCode"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              required
-            />
-            <Button type="submit" fullWidth loading={loading}>Verify Email</Button>
-            <Button type="button" variant="outline" fullWidth onClick={handleResend} disabled={loading}>
-              Resend Code
             </Button>
           </form>
         )}

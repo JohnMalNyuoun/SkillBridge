@@ -28,6 +28,8 @@ const YouthLogin = () => {
       login(res.data.user, res.data.token);
       if (res.data.user.role === 'admin') {
         navigate('/admin/dashboard');
+      } else if (['org_admin', 'staff', 'trainee'].includes(res.data.user.role)) {
+        navigate('/org/courses');
       } else {
         navigate('/home');
       }

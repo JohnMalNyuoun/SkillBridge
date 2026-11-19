@@ -46,8 +46,10 @@ const CourseDetail = () => {
         })));
 
         // Check if already applied
-        const applied = appsRes.data.some(app => app.course?._id === id);
-        setAlreadyApplied(applied);
+        const application = appsRes.data.find((app) => (
+          String(app.course?._id || app.course) === id
+        ));
+        setAlreadyApplied(Boolean(application));
 
       } catch (err) {
         console.error(err);
@@ -294,6 +296,7 @@ const CourseDetail = () => {
             </div>
           )}
           </div>
+
         </div>
 
         {/* Application Section */}

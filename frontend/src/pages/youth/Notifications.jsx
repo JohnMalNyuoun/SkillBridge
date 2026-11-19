@@ -11,6 +11,10 @@ import {
 } from '../../services/notificationService';
 import { useNotifications } from '../../context/NotificationContext';
 import { checkFollowStatus, followTarget } from '../../services/followService';
+import {
+  declineCallSession,
+  getCallSession
+} from '../../services/courseCallService';
 
 const Notifications = () => {
   const navigate = useNavigate();
@@ -73,6 +77,59 @@ const Notifications = () => {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const markNotificationReadLocally = async (notification) => {
+    if (notification.isRead) return;
+    await markAsRead(notification._id);
+    setNotifications((current) => current.map((item) => (
+      item._id === notification._id ? { ...item, isRead: true } : item
+    )));
+  };
+
+  const openGroupChatNotification = async (notification) => {
+    const courseId = notification.course?._id
+      || notification.course
+      || (notification.referenceModel === 'Course' ? notification.reference : null);
+    if (!courseId) return;
+
+    try {
+      await markNotificationReadLocally(notification);
+    } catch (err) {
+      console.error(err);
+    }
+    navigate(`/group-chats/${courseId}`);
+  };
+
+  const openCallNotification = async (notification) => {
+    try {
+      const response = await getCallSession(notification.reference);
+      await markNotificationReadLocally(notification);
+      const { callSession, course } = response.data;
+      if (callSession.status === 'ongoing') {
+        navigate(`/calls/${callSession._id}`);
+      } else {
+        navigate(`/courses/${course?._id || notification.course}/discussion`);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCallAction = async (event, notification, action) => {
+    event.stopPropagation();
+    if (action === 'decline') {
+      try {
+        await declineCallSession(notification.reference);
+        setNotifications((current) => current.map((item) => (
+          item._id === notification._id ? { ...item, isRead: true } : item
+        )));
+      } catch (err) {
+        console.error(err);
+      }
+      return;
+    }
+    await openCallNotification(notification);
   };
 
   const handleMarkAllAsRead = async () => {
@@ -185,13 +242,20 @@ const Notifications = () => {
             {notifications.map((notification, i) => (
               <div
                 key={notification._id}
-                onClick={() => !notification.isRead && handleMarkAsRead(notification._id)}
+                onClick={() => (
+                  notification.type === 'course_call'
+                    ? openCallNotification(notification)
+                    : ['group_chat_created', 'group_chat_message'].includes(notification.type)
+                      ? openGroupChatNotification(notification)
+                    : !notification.isRead && handleMarkAsRead(notification._id)
+                )}
                 style={{
                   padding: '16px 0',
                   borderBottom: i < notifications.length - 1
                     ? '1px solid var(--border-color)' : 'none',
                   background: 'transparent',
-                  cursor: notification.isRead ? 'default' : 'pointer',
+                  cursor: ['course_call', 'group_chat_created', 'group_chat_message'].includes(notification.type)
+                    || !notification.isRead ? 'pointer' : 'default',
                   display: 'flex',
                   gap: '16px',
                   alignItems: 'flex-start',
@@ -305,6 +369,36 @@ const Notifications = () => {
                           : followLoadingByUser[String(notification.reference)]
                             ? 'Following...'
                             : 'Follow back'}
+                      </Button>
+                    </div>
+                  )}
+                  {notification.type === 'course_call' && notification.reference && (
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                      <Button
+                        onClick={(event) => handleCallAction(event, notification, 'join')}
+                        style={{ minHeight: '36px', padding: '8px 12px', fontSize: '0.78rem' }}
+                      >
+                        Join call
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={(event) => handleCallAction(event, notification, 'decline')}
+                        style={{ minHeight: '36px', padding: '8px 12px', fontSize: '0.78rem' }}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  )}
+                  {['group_chat_created', 'group_chat_message'].includes(notification.type) && (
+                    <div style={{ marginTop: '10px' }}>
+                      <Button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openGroupChatNotification(notification);
+                        }}
+                        style={{ minHeight: '36px', padding: '8px 12px', fontSize: '0.78rem' }}
+                      >
+                        Open group chat
                       </Button>
                     </div>
                   )}

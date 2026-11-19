@@ -10,12 +10,13 @@ import {
   updateOrgLanguage
 } from '../../services/profileService';
 import { useLanguage } from '../../hooks/useLanguage';
+import { getUserTheme, saveUserTheme } from '../../utils/themePreference';
 
 const SETTINGS_KEY = 'fh_settings_org_tab';
 
 const OrgSettings = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,33 +28,34 @@ const OrgSettings = () => {
     newPassword: '',
     confirmNewPassword: ''
   });
-  const [settings, setSettings] = useState({
-    theme: 'dark',
-    language,
-    privacy: {
-      profileVisible: true,
-      activityVisible: true
-    }
-  });
-
-  useEffect(() => {
+  const [settings, setSettings] = useState(() => {
+    const initialSettings = {
+      theme: getUserTheme(user),
+      language,
+      privacy: {
+        profileVisible: true,
+        activityVisible: true
+      }
+    };
     const saved = sessionStorage.getItem(SETTINGS_KEY);
-    if (!saved) return;
+    if (!saved) return initialSettings;
 
     try {
       const parsed = JSON.parse(saved);
-      setSettings((current) => ({
-        ...current,
+      return {
+        ...initialSettings,
         ...parsed,
+        theme: getUserTheme(user),
         privacy: {
-          ...current.privacy,
+          ...initialSettings.privacy,
           ...(parsed.privacy || {})
         }
-      }));
+      };
     } catch (err) {
       console.error('Failed to parse organisation settings', err);
+      return initialSettings;
     }
-  }, []);
+  });
 
   useEffect(() => {
     sessionStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -87,6 +89,13 @@ const OrgSettings = () => {
         [key]: value
       }
     }));
+  };
+
+  const toggleTheme = () => {
+    const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
+    saveUserTheme(user, nextTheme);
+    setSettings((current) => ({ ...current, theme: nextTheme }));
+    setNotice('Theme updated.');
   };
 
   const handleLogout = () => {
@@ -296,13 +305,7 @@ const OrgSettings = () => {
             </p>
             <button
               type="button"
-              onClick={() => {
-                setSettings((current) => ({
-                  ...current,
-                  theme: current.theme === 'dark' ? 'light' : 'dark'
-                }));
-                setNotice('Theme updated.');
-              }}
+              onClick={toggleTheme}
               role="switch"
               aria-checked={settings.theme === 'dark'}
               aria-label="Switch theme"

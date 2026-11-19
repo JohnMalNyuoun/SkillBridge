@@ -7,6 +7,18 @@ const courseSchema = new mongoose.Schema({
     ref: 'Organisation',
     required: true
   },
+  assignedInstructor: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  enrolledStudents: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  groupChatId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GroupChat'
+  },
 
   // Basic Info
   title: {

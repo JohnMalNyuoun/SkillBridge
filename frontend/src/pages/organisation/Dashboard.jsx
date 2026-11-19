@@ -4,29 +4,28 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import { getOrgCourses } from '../../services/courseService';
 import { getOrgApplications } from '../../services/applicationService';
+import { createOrgMember, getOrgDashboard } from '../../services/orgDashboardService';
 import useAuth from '../../hooks/useAuth';
-
-const dayMs = 24 * 60 * 60 * 1000;
-
-const trendOf = (current, previous) => {
-  if (!previous) {
-    if (!current) return { direction: 'steady', changePct: 0 };
-    return { direction: 'up', changePct: 100 };
-  }
-  const diff = current - previous;
-  const changePct = Math.round((diff / previous) * 100);
-  if (changePct > 2) return { direction: 'up', changePct };
-  if (changePct < -2) return { direction: 'down', changePct };
-  return { direction: 'steady', changePct };
-};
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const canManageTeam = ['organisation', 'org_admin'].includes(user?.role);
   const [courses, setCourses] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [activeGroupChats, setActiveGroupChats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [memberForm, setMemberForm] = useState({
+    fullName: '',
+    email: '',
+    password: '',
+    role: 'staff'
+  });
+  const [creatingMember, setCreatingMember] = useState(false);
+  const [memberError, setMemberError] = useState('');
+  const [memberNotice, setMemberNotice] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -37,6 +36,11 @@ const Dashboard = () => {
         ]);
         setCourses(coursesRes.data || []);
         setApplications(appsRes.data || []);
+        if (canManageTeam) {
+          const dashboardRes = await getOrgDashboard();
+          setTeamMembers(dashboardRes.data?.teamMembers || []);
+          setActiveGroupChats(dashboardRes.data?.activeGroupChats || []);
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -44,56 +48,34 @@ const Dashboard = () => {
       }
     };
     fetchData();
-  }, []);
+  }, [canManageTeam]);
+
+  const handleCreateMember = async (event) => {
+    event.preventDefault();
+    setCreatingMember(true);
+    setMemberError('');
+    setMemberNotice('');
+
+    try {
+      const response = await createOrgMember(memberForm);
+      setTeamMembers((current) => [{
+        ...response.data,
+        _id: response.data.id
+      }, ...current]);
+      setMemberForm({ fullName: '', email: '', password: '', role: 'staff' });
+      setMemberNotice('Team member created.');
+    } catch (err) {
+      setMemberError(err.response?.data?.message || 'Unable to create the team member.');
+    } finally {
+      setCreatingMember(false);
+    }
+  };
 
   if (loading) return <Loader />;
 
-  const now = Date.now();
-  const window7Start = now - (7 * dayMs);
-  const window14Start = now - (14 * dayMs);
-
   const totalCourses = courses.length;
-  const publishedCourses = courses.filter((c) => c.status === 'published').length;
-  const draftCourses = courses.filter((c) => c.status === 'draft').length;
-  const closedCourses = courses.filter((c) => c.status === 'closed' || c.status === 'cancelled').length;
-
   const totalApplications = applications.length;
   const pendingApplications = applications.filter((a) => a.status === 'submitted').length;
-  const shortlistedApplications = applications.filter((a) => a.status === 'shortlisted').length;
-  const acceptedApplications = applications.filter((a) => a.status === 'accepted').length;
-  const rejectedApplications = applications.filter((a) => a.status === 'rejected').length;
-
-  const appsLast7d = applications.filter((a) => {
-    const ts = new Date(a.createdAt).getTime();
-    return ts >= window7Start;
-  }).length;
-  const appsPrev7d = applications.filter((a) => {
-    const ts = new Date(a.createdAt).getTime();
-    return ts >= window14Start && ts < window7Start;
-  }).length;
-
-  const acceptedLast7d = applications.filter((a) => {
-    const ts = new Date(a.updatedAt || a.createdAt).getTime();
-    return a.status === 'accepted' && ts >= window7Start;
-  }).length;
-  const acceptedPrev7d = applications.filter((a) => {
-    const ts = new Date(a.updatedAt || a.createdAt).getTime();
-    return a.status === 'accepted' && ts >= window14Start && ts < window7Start;
-  }).length;
-
-  const conversionRate = totalApplications > 0
-    ? Math.round((acceptedApplications / totalApplications) * 100)
-    : 0;
-
-  const recentApplications = [...applications]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(0, 5)
-    .map((a) => ({
-      id: a._id,
-      applicant: a.youth?.fullName || a.user?.fullName || 'Applicant',
-      courseTitle: a.course?.title || 'Course',
-      status: a.status || 'submitted'
-    }));
 
   const statCards = [
     { label: `Courses (${totalCourses})`, value: totalCourses, link: '/org/courses' },
@@ -135,31 +117,14 @@ const Dashboard = () => {
   const filteredActions = q
     ? quickActions.filter((item) => `${item.title} ${item.desc}`.toLowerCase().includes(q))
     : quickActions;
-
-  const analytics = {
-    courses: {
-      total: totalCourses,
-      published: publishedCourses,
-      drafts: draftCourses,
-      closed: closedCourses
-    },
-    applications: {
-      total: totalApplications,
-      pending: pendingApplications,
-      shortlisted: shortlistedApplications,
-      accepted: acceptedApplications,
-      rejected: rejectedApplications,
-      last7d: appsLast7d,
-      prev7d: appsPrev7d,
-      trend: trendOf(appsLast7d, appsPrev7d)
-    },
-    outcomes: {
-      conversionRate,
-      acceptedLast7d,
-      acceptedPrev7d,
-      trend: trendOf(acceptedLast7d, acceptedPrev7d)
-    },
-    recentApplications
+  const memberFieldStyle = {
+    width: '100%',
+    minWidth: 0,
+    padding: '10px 12px',
+    background: 'var(--bg-section-alt)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border-color)',
+    borderRadius: '10px'
   };
 
   return (
@@ -264,7 +229,181 @@ const Dashboard = () => {
           ))}
         </div>
 
-        <OrgActivityPanel analytics={analytics} />
+        {canManageTeam && (
+          <>
+            <section style={{ marginBottom: '28px' }}>
+              <h2 style={{
+                fontSize: '1.2rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: '14px'
+              }}>
+                Active Group Chats
+              </h2>
+              {activeGroupChats.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                  No active group chats yet.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {activeGroupChats.map((chat) => (
+                    <Link
+                      key={chat._id}
+                      to={`/org/group-chats/${chat.courseId}`}
+                      style={{ textDecoration: 'none' }}
+                    >
+                      <article style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '14px 0',
+                        borderBottom: '1px solid var(--border-color)'
+                      }}>
+                        <div>
+                          <h3 style={{ color: 'var(--text-primary)', fontSize: '0.95rem', fontWeight: 800 }}>
+                            {chat.name}
+                          </h3>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '4px' }}>
+                            {chat.participantCount} participants
+                          </p>
+                        </div>
+                        <span style={{ color: 'var(--fb-blue)', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                          Open →
+                        </span>
+                      </article>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section style={{ marginBottom: '28px' }}>
+              <h2 style={{
+                fontSize: '1.2rem',
+                fontWeight: 700,
+                color: 'var(--text-primary)',
+                marginBottom: '14px'
+              }}>
+                Organization Team
+              </h2>
+              <form
+                onSubmit={handleCreateMember}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '10px',
+                  marginBottom: '16px'
+                }}
+              >
+                <input
+                  required
+                  aria-label="Team member name"
+                  placeholder="Full name"
+                  value={memberForm.fullName}
+                  style={memberFieldStyle}
+                  onChange={(event) => setMemberForm((current) => ({
+                    ...current,
+                    fullName: event.target.value
+                  }))}
+                />
+                <input
+                  required
+                  type="email"
+                  aria-label="Team member email"
+                  placeholder="Email"
+                  value={memberForm.email}
+                  style={memberFieldStyle}
+                  onChange={(event) => setMemberForm((current) => ({
+                    ...current,
+                    email: event.target.value
+                  }))}
+                />
+                <input
+                  required
+                  type="password"
+                  minLength={6}
+                  aria-label="Temporary password"
+                  placeholder="Temporary password"
+                  value={memberForm.password}
+                  style={memberFieldStyle}
+                  onChange={(event) => setMemberForm((current) => ({
+                    ...current,
+                    password: event.target.value
+                  }))}
+                />
+                <select
+                  aria-label="Team member role"
+                  value={memberForm.role}
+                  style={memberFieldStyle}
+                  onChange={(event) => setMemberForm((current) => ({
+                    ...current,
+                    role: event.target.value
+                  }))}
+                >
+                  <option value="staff">Staff</option>
+                  <option value="trainee">Trainee</option>
+                </select>
+                <button
+                  type="submit"
+                  disabled={creatingMember}
+                  style={{
+                    border: 0,
+                    borderRadius: '9px',
+                    padding: '10px 14px',
+                    color: 'var(--text-on-primary)',
+                    background: 'var(--fb-blue)',
+                    fontWeight: 800,
+                    cursor: creatingMember ? 'wait' : 'pointer'
+                  }}
+                >
+                  {creatingMember ? 'Adding…' : 'Add team member'}
+                </button>
+              </form>
+              {memberError && <p role="alert" style={{ color: 'var(--danger-text)', marginBottom: '10px' }}>{memberError}</p>}
+              {memberNotice && <p role="status" style={{ color: 'var(--success-text)', marginBottom: '10px' }}>{memberNotice}</p>}
+              {teamMembers.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                  No staff or trainees have been added yet.
+                </p>
+              ) : (
+                <div style={{ display: 'grid', gap: '10px' }}>
+                  {teamMembers.map((member) => (
+                    <div
+                      key={member._id}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px 0',
+                        borderBottom: '1px solid var(--border-color)'
+                      }}
+                    >
+                      <div>
+                        <strong style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>
+                          {member.fullName}
+                        </strong>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginTop: '3px' }}>
+                          {member.email}
+                        </p>
+                      </div>
+                      <span style={{
+                        color: member.isSuspended ? 'var(--danger-text)' : 'var(--text-secondary)',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        textTransform: 'capitalize',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {member.role}{member.isSuspended ? ' · Suspended' : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
+        )}
 
         <div>
           <h2 style={{
@@ -317,254 +456,6 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
-      </div>
-    </div>
-  );
-};
-
-const TOKENS = {
-  surface: 'var(--bg-card)',
-  surfaceMuted: 'var(--bg-base)',
-  border: 'var(--border-color)',
-  textPrimary: 'var(--text-primary)',
-  textMuted: 'var(--text-secondary)',
-  textDim: 'var(--text-muted)',
-  accent: 'var(--fb-blue)',
-  success: 'var(--success-primary)',
-  danger: 'var(--danger-primary)',
-  radius: '8px'
-};
-
-const TREND_GLYPH = {
-  up: { icon: '↑', color: TOKENS.success, label: 'Increasing' },
-  down: { icon: '↓', color: TOKENS.danger, label: 'Declining' },
-  steady: { icon: '–', color: TOKENS.textDim, label: 'Steady' }
-};
-
-const TrendBadge = ({ trend }) => {
-  const t = TREND_GLYPH[trend?.direction] || TREND_GLYPH.steady;
-  const pct = typeof trend?.changePct === 'number' ? trend.changePct : 0;
-  return (
-    <span style={{
-      display: 'inline-flex',
-      alignItems: 'center',
-      gap: '4px',
-      color: t.color,
-      fontSize: '0.74rem',
-      fontWeight: 700,
-      textTransform: 'uppercase',
-      letterSpacing: '0.04em'
-    }}>
-      <span>{t.icon}</span>
-      <span>{pct > 0 ? `+${pct}` : pct}%</span>
-      <span style={{ color: TOKENS.textDim, fontWeight: 600 }}>{t.label}</span>
-    </span>
-  );
-};
-
-const MetricTile = ({ label, value, sub, trend }) => (
-  <div style={{
-    background: TOKENS.surface,
-    border: `1px solid ${TOKENS.border}`,
-    borderRadius: TOKENS.radius,
-    padding: '14px 16px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    minHeight: '108px'
-  }}>
-    <div style={{
-      fontSize: '0.7rem',
-      fontWeight: 700,
-      color: TOKENS.textDim,
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em'
-    }}>
-      {label}
-    </div>
-    <div style={{ fontSize: '1.6rem', fontWeight: 800, color: TOKENS.accent, lineHeight: 1 }}>
-      {value}
-    </div>
-    {sub && (
-      <div style={{ fontSize: '0.76rem', color: TOKENS.textMuted }}>
-        {sub}
-      </div>
-    )}
-    {trend && <TrendBadge trend={trend} />}
-  </div>
-);
-
-const InfoRow = ({ label, value }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: '12px',
-    padding: '8px 0',
-    borderBottom: `1px solid ${TOKENS.border}`
-  }}>
-    <span style={{ fontSize: '0.8rem', color: TOKENS.textMuted, fontWeight: 600 }}>{label}</span>
-    <span style={{ fontSize: '0.92rem', color: TOKENS.textPrimary, fontWeight: 800 }}>{value}</span>
-  </div>
-);
-
-const SubPanel = ({ title, children }) => (
-  <div style={{
-    background: TOKENS.surface,
-    border: `1px solid ${TOKENS.border}`,
-    borderRadius: TOKENS.radius,
-    padding: '14px 16px'
-  }}>
-    <div style={{
-      fontSize: '0.78rem',
-      fontWeight: 800,
-      color: TOKENS.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: '0.06em',
-      marginBottom: '8px'
-    }}>
-      {title}
-    </div>
-    {children}
-  </div>
-);
-
-const OrgActivityPanel = ({ analytics }) => {
-  const heading = (
-    <div style={{ marginBottom: '14px' }}>
-      <h2 style={{
-        fontSize: '1.05rem',
-        fontWeight: 800,
-        color: TOKENS.textPrimary,
-        margin: 0,
-        letterSpacing: '-0.2px'
-      }}>
-        Organisation Activity
-      </h2>
-      <p style={{ fontSize: '0.8rem', color: TOKENS.textDim, marginTop: '4px' }}>
-        Course pipeline, applicant flow and acceptance outcomes.
-      </p>
-    </div>
-  );
-
-  if (!analytics) {
-    return (
-      <div style={{ marginBottom: '28px' }}>
-        {heading}
-        <div style={{
-          background: TOKENS.surface,
-          border: `1px solid ${TOKENS.border}`,
-          borderRadius: TOKENS.radius,
-          padding: '16px',
-          color: TOKENS.textDim,
-          fontSize: '0.86rem'
-        }}>
-          Loading metrics...
-        </div>
-      </div>
-    );
-  }
-
-  const { courses, applications, outcomes, recentApplications } = analytics;
-
-  return (
-    <div style={{ marginBottom: '28px' }}>
-      {heading}
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '10px',
-        marginBottom: '12px'
-      }}>
-        <MetricTile
-          label="Published courses"
-          value={courses?.published ?? 0}
-          sub={`${courses?.total ?? 0} total courses`}
-        />
-        <MetricTile
-          label="Applications"
-          value={applications?.total ?? 0}
-          sub={`${applications?.last7d ?? 0} new · last 7d`}
-          trend={applications?.trend}
-        />
-        <MetricTile
-          label="Accepted"
-          value={applications?.accepted ?? 0}
-          sub={`${applications?.pending ?? 0} pending review`}
-        />
-        <MetricTile
-          label="Acceptance rate"
-          value={`${outcomes?.conversionRate ?? 0}%`}
-          sub={`${outcomes?.acceptedLast7d ?? 0} accepted · last 7d`}
-          trend={outcomes?.trend}
-        />
-      </div>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-        gap: '10px'
-      }}>
-        <SubPanel title="Application pipeline">
-          <InfoRow label="Pending review" value={applications?.pending ?? 0} />
-          <InfoRow label="Shortlisted" value={applications?.shortlisted ?? 0} />
-          <InfoRow label="Accepted" value={applications?.accepted ?? 0} />
-          <div style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            justifyContent: 'space-between',
-            gap: '12px',
-            padding: '8px 0'
-          }}>
-            <span style={{ fontSize: '0.8rem', color: TOKENS.textMuted, fontWeight: 600 }}>Rejected</span>
-            <span style={{ fontSize: '0.92rem', color: TOKENS.textPrimary, fontWeight: 800 }}>
-              {applications?.rejected ?? 0}
-            </span>
-          </div>
-        </SubPanel>
-
-        <SubPanel title="Course status mix">
-          <InfoRow label="Published" value={courses?.published ?? 0} />
-          <InfoRow label="Draft" value={courses?.drafts ?? 0} />
-          <InfoRow label="Closed" value={courses?.closed ?? 0} />
-          <div style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            justifyContent: 'space-between',
-            gap: '12px',
-            padding: '8px 0'
-          }}>
-            <span style={{ fontSize: '0.8rem', color: TOKENS.textMuted, fontWeight: 600 }}>Total</span>
-            <span style={{ fontSize: '0.92rem', color: TOKENS.textPrimary, fontWeight: 800 }}>
-              {courses?.total ?? 0}
-            </span>
-          </div>
-        </SubPanel>
-
-        <SubPanel title="Recent applications">
-          {Array.isArray(recentApplications) && recentApplications.length > 0 ? (
-            <div style={{ display: 'grid', gap: '8px' }}>
-              {recentApplications.map((row) => (
-                <div key={row.id} style={{
-                  borderBottom: `1px solid ${TOKENS.border}`,
-                  paddingBottom: '8px'
-                }}>
-                  <div style={{ color: TOKENS.textPrimary, fontSize: '0.86rem', fontWeight: 700 }}>
-                    {row.applicant}
-                  </div>
-                  <div style={{ color: TOKENS.textDim, fontSize: '0.76rem' }}>
-                    {row.courseTitle} · {row.status}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ fontSize: '0.82rem', color: TOKENS.textDim }}>
-              No applications yet.
-            </div>
-          )}
-        </SubPanel>
       </div>
     </div>
   );

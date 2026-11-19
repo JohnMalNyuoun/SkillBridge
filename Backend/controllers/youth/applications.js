@@ -112,7 +112,7 @@ const applyForCourse = async (req, res) => {
 const getMyApplications = async (req, res) => {
   try {
     const applications = await Application.find({ youth: req.user.id })
-      .populate('course', 'title category location deliveryMode startDate endDate status')
+      .populate('course', 'title category location deliveryMode startDate endDate status groupChatId')
       .populate('organisation', 'name type')
       .sort({ createdAt: -1 });
 

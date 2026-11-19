@@ -28,6 +28,8 @@ const notificationSchema = new mongoose.Schema({
       'application_shortlisted',
       'application_accepted',
       'application_rejected',
+      'group_chat_created',
+      'group_chat_message',
       'course_published',
       'org_approved',
       'org_rejected',
@@ -35,7 +37,8 @@ const notificationSchema = new mongoose.Schema({
       'org_reinstatement_request',
       'org_reinstated',
       'org_reinstatement_denied',
-      'admin_broadcast'
+      'admin_broadcast',
+      'course_call'
     ],
     required: true
   },
@@ -47,7 +50,11 @@ const notificationSchema = new mongoose.Schema({
   },
   referenceModel: {
     type: String,
-    enum: ['Course', 'Application', 'Organisation', 'User', 'Broadcast']
+    enum: ['Course', 'Application', 'Organisation', 'User', 'Broadcast', 'CallSession']
+  },
+  course: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course'
   },
   sender: {
     type: mongoose.Schema.Types.ObjectId,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { identifyUser, resetPosthog } from "../lib/posthog";
+import { applyUserTheme } from "../utils/themePreference";
 import { AuthContext } from "./AuthContextValue";
 
 const readStoredAuth = () => {
@@ -37,6 +38,7 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) identifyUser(user);
+    applyUserTheme(user);
   }, [user]);
 
   const login = (userData, userToken) => {

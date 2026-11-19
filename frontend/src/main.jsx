@@ -5,23 +5,23 @@ import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { NotificationProvider } from './context/NotificationContext'
 import { initPosthog } from './lib/posthog'
+import { getUserTheme } from './utils/themePreference'
 import './index.css'
 import App from './App.jsx'
 
 initPosthog();
 
-const savedYouthSettings = sessionStorage.getItem('fh_settings_youth_tab');
-const savedOrgSettings = sessionStorage.getItem('fh_settings_org_tab');
+const getStoredUser = () => {
+  try {
+    const userJson = sessionStorage.getItem('user') || localStorage.getItem('user');
+    return userJson ? JSON.parse(userJson) : null;
+  } catch {
+    return null;
+  }
+};
 
-try {
-  const preferredTheme =
-    (savedYouthSettings && JSON.parse(savedYouthSettings)?.theme)
-    || (savedOrgSettings && JSON.parse(savedOrgSettings)?.theme)
-    || 'light';
-  document.documentElement.setAttribute('data-theme', preferredTheme);
-} catch (err) {
-  document.documentElement.setAttribute('data-theme', 'light');
-}
+const storedUser = getStoredUser();
+document.documentElement.setAttribute('data-theme', getUserTheme(storedUser));
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

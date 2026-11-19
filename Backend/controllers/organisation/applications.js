@@ -1,4 +1,5 @@
 const Application = require('../../models/Application');
+const { addEnrolledStudentToCourse } = require('../../services/courseGroupChatEnrollment');
 const { success, error } = require('../../utils/apiResponse');
 const { notify } = require('../../services/notificationService');
 const posthog = require('../../config/posthog');
@@ -10,7 +11,7 @@ const getOrgApplications = async (req, res) => {
   try {
     const { status, courseId } = req.query;
 
-    const filter = { organisation: req.user.id };
+    const filter = { organisation: req.organizationId || req.user.id };
     if (status) filter.status = status;
     if (courseId) filter.course = courseId;
 
@@ -33,7 +34,7 @@ const getOrgApplication = async (req, res) => {
   try {
     const application = await Application.findOne({
       _id: req.params.id,
-      organisation: req.user.id
+      organisation: req.organizationId || req.user.id
     })
       .populate('youth', 'fullName email communityType dateOfBirth gender phoneNumber photo')
       .populate('course', 'title category location applicationQuestions');
@@ -58,7 +59,7 @@ const shortlistApplicant = async (req, res) => {
 
     const application = await Application.findOne({
       _id: req.params.id,
-      organisation: req.user.id
+      organisation: req.organizationId || req.user.id
     });
 
     if (!application) {
@@ -69,7 +70,7 @@ const shortlistApplicant = async (req, res) => {
     application.shortlistedAt = new Date();
     application.shortlistNote = shortlistNote;
     application.nextStep = nextStep;
-    application.reviewedBy = req.user.id;
+    application.reviewedBy = req.organizationId || req.user.id;
     application.reviewedAt = new Date();
 
     await application.save();
@@ -89,7 +90,7 @@ const shortlistApplicant = async (req, res) => {
       type: 'application_shortlisted',
       reference: application._id,
       referenceModel: 'Application',
-      sender: req.user.id,
+      sender: req.organizationId || req.user.id,
       senderModel: 'Organisation'
     });
 
@@ -117,7 +118,7 @@ const acceptApplicant = async (req, res) => {
   try {
     const application = await Application.findOne({
       _id: req.params.id,
-      organisation: req.user.id
+      organisation: req.organizationId || req.user.id
     });
 
     if (!application) {
@@ -125,7 +126,7 @@ const acceptApplicant = async (req, res) => {
     }
 
     application.status = 'accepted';
-    application.reviewedBy = req.user.id;
+    application.reviewedBy = req.organizationId || req.user.id;
     application.reviewedAt = new Date();
 
     await application.save();
@@ -137,6 +138,12 @@ const acceptApplicant = async (req, res) => {
     });
     await application.save();
 
+    await addEnrolledStudentToCourse({
+      courseId: application.course,
+      organisationId: req.organizationId || req.user.id,
+      userId: application.youth
+    });
+
     await notify({
       recipient: application.youth,
       recipientModel: 'User',
@@ -145,7 +152,7 @@ const acceptApplicant = async (req, res) => {
       type: 'application_accepted',
       reference: application._id,
       referenceModel: 'Application',
-      sender: req.user.id,
+      sender: req.organizationId || req.user.id,
       senderModel: 'Organisation'
     });
 
@@ -175,7 +182,7 @@ const rejectApplicant = async (req, res) => {
 
     const application = await Application.findOne({
       _id: req.params.id,
-      organisation: req.user.id
+      organisation: req.organizationId || req.user.id
     });
 
     if (!application) {
@@ -184,7 +191,7 @@ const rejectApplicant = async (req, res) => {
 
     application.status = 'rejected';
     application.rejectionReason = rejectionReason;
-    application.reviewedBy = req.user.id;
+    application.reviewedBy = req.organizationId || req.user.id;
     application.reviewedAt = new Date();
 
     await application.save();
@@ -204,7 +211,7 @@ const rejectApplicant = async (req, res) => {
       type: 'application_rejected',
       reference: application._id,
       referenceModel: 'Application',
-      sender: req.user.id,
+      sender: req.organizationId || req.user.id,
       senderModel: 'Organisation'
     });
 

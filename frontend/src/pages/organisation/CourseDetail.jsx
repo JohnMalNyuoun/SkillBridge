@@ -5,10 +5,12 @@ import Loader from '../../components/common/Loader';
 import ShareButton from '../../components/common/ShareButton';
 import { getOrgCourse } from '../../services/courseService';
 import { resolveImageUrl } from '../../utils/imageUrl';
+import useAuth from '../../hooks/useAuth';
 
 const OrgCourseDetail = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -161,7 +163,7 @@ const OrgCourseDetail = () => {
               >
                 Back
               </Link>
-              {course.status !== 'published' && (
+              {user?.role === 'organisation' && course.status !== 'published' && (
                 <Link
                   to={`/org/courses/${course._id}/edit`}
                   style={{

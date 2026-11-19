@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
 import useAuth from '../../hooks/useAuth';
 import { resolveImageUrl } from '../../utils/imageUrl';
+import { getUserTheme, saveUserTheme } from '../../utils/themePreference';
 import {
   getYouthProfile,
   updateYouthTheme
@@ -11,7 +12,7 @@ import {
 
 const YouthSettings = () => {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -20,7 +21,7 @@ const YouthSettings = () => {
   const [showPhotoPreview, setShowPhotoPreview] = useState(false);
 
   const [preferences, setPreferences] = useState({
-    theme: 'light'
+    theme: getUserTheme(user)
   });
 
   useEffect(() => {
@@ -30,8 +31,9 @@ const YouthSettings = () => {
       .then((res) => {
         if (!active) return;
         setProfile(res.data);
-        setPreferences({ theme: res.data.theme || 'light' });
-        document.documentElement.setAttribute('data-theme', res.data.theme || 'light');
+        const theme = res.data.theme || 'light';
+        setPreferences({ theme });
+        document.documentElement.setAttribute('data-theme', theme);
       })
       .catch((err) => {
         if (active) setError(err.response?.data?.message || 'Failed to load menu');
@@ -43,7 +45,7 @@ const YouthSettings = () => {
     return () => {
       active = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const profilePhotoSrc = useMemo(() => {
     if (!profile?.photo) return '';
@@ -60,6 +62,8 @@ const YouthSettings = () => {
     try {
       const nextTheme = preferences.theme === 'dark' ? 'light' : 'dark';
       await updateYouthTheme(nextTheme);
+      saveUserTheme(user, nextTheme);
+      updateUser({ theme: nextTheme });
       setPreferences((current) => ({ ...current, theme: nextTheme }));
       document.documentElement.setAttribute('data-theme', nextTheme);
     } catch (err) {

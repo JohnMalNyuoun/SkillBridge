@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import {
-  resendRegistrationCode,
-  verifyRegistrationEmail,
-  youthRegister
-} from '../../services/authService';
+import { youthRegister } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
@@ -23,8 +19,6 @@ const YouthRegister = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [awaitingVerification, setAwaitingVerification] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -36,43 +30,11 @@ const YouthRegister = () => {
     setLoading(true);
 
     try {
-      await youthRegister(form);
-      setAwaitingVerification(true);
-      setVerificationCode('');
-      setError('');
-    } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await verifyRegistrationEmail({
-        email: form.email,
-        accountType: 'youth',
-        code: verificationCode
-      });
-      login(res.data.user, res.data.token);
+      const response = await youthRegister(form);
+      login(response.data.user, response.data.token);
       navigate('/home');
     } catch (err) {
-      setError(err.response?.data?.message || 'Email verification failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      await resendRegistrationCode({ email: form.email, accountType: 'youth' });
-    } catch (err) {
-      setError(err.response?.data?.message || 'Could not resend verification code');
+      setError(err.response?.data?.message || 'Registration failed');
     } finally {
       setLoading(false);
     }
@@ -111,14 +73,14 @@ const YouthRegister = () => {
           </p>
         </div>
 
-        {!awaitingVerification && <h2 style={{
+        <h2 style={{
           fontSize: '1.15rem',
           fontWeight: 800,
           color: 'var(--text-primary)',
           marginBottom: '24px'
         }}>
           Create your account
-        </h2>}
+        </h2>
 
         {error && (
           <div style={{
@@ -134,29 +96,7 @@ const YouthRegister = () => {
           </div>
         )}
 
-        {awaitingVerification ? (
-          <form onSubmit={handleVerify}>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
-              Enter the six-digit code sent to {form.email}. The code expires in 10 minutes.
-            </p>
-            <Input
-              label="Email verification code"
-              type="text"
-              name="verificationCode"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              required
-            />
-            <Button type="submit" fullWidth loading={loading}>Verify Email</Button>
-            <Button type="button" variant="outline" fullWidth onClick={handleResend} disabled={loading}>
-              Resend Code
-            </Button>
-          </form>
-        ) : <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit}>
           <Input
             label="Full Name"
             type="text"
@@ -236,7 +176,7 @@ const YouthRegister = () => {
           >
             Create Account
           </Button>
-        </form>}
+        </form>
 
         <p style={{
           textAlign: 'center',

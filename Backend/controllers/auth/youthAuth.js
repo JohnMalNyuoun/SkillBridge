@@ -3,7 +3,6 @@ const User = require('../../models/Users');
 const generateToken = require('../../utils/generateToken');
 const { success, error } = require('../../utils/apiResponse');
 const posthog = require('../../config/posthog');
-const { sendCode } = require('../../services/verificationCodeService');
 
 // @desc    Register youth
 // @route   POST /api/auth/youth/register
@@ -44,15 +43,9 @@ const registerYouth = async (req, res) => {
       dateOfBirth: resolvedDateOfBirth,
       ...(age !== undefined ? { age } : {}),
       gender,
-      phoneNumber
+      phoneNumber,
+      isVerified: true
     });
-
-    try {
-      await sendCode(user, 'emailVerification');
-    } catch (mailError) {
-      await user.deleteOne();
-      throw mailError;
-    }
 
     posthog.identify({
       distinctId: user._id.toString(),
@@ -73,9 +66,17 @@ const registerYouth = async (req, res) => {
       }
     });
 
-    return success(res, 201, 'A six-digit verification code was sent to your email address.', {
-      email: user.email,
-      accountType: 'youth'
+    const token = generateToken(user._id, user.role);
+    return success(res, 201, 'Account created successfully.', {
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        photo: user.photo,
+        communityType: user.communityType,
+        role: user.role
+      }
     });
 
   } catch (err) {

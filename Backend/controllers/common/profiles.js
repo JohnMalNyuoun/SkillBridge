@@ -4,7 +4,27 @@ const Follow = require('../../models/Follow');
 const Application = require('../../models/Application');
 const Course = require('../../models/course');
 const CourseEngagement = require('../../models/CourseEngagement');
+const mongoose = require('mongoose');
 const { success, error } = require('../../utils/apiResponse');
+
+const getPublicChatMemberProfile = async (req, res) => {
+  try {
+    if (!mongoose.isObjectIdOrHexString(req.params.id)) {
+      return error(res, 400, 'Invalid profile ID.');
+    }
+
+    const user = await User.findOne({
+      _id: req.params.id,
+      isActive: { $ne: false },
+      isSuspended: { $ne: true }
+    }).select('fullName username bio photo role communityType createdAt');
+
+    if (!user) return error(res, 404, 'Member profile not found.');
+    return success(res, 200, 'Member profile fetched.', user);
+  } catch (err) {
+    return error(res, 500, err.message);
+  }
+};
 
 // @desc    Get public youth profile
 // @route   GET /api/profiles/youth/:id
@@ -136,6 +156,7 @@ const getPublicOrganisationProfile = async (req, res) => {
 };
 
 module.exports = {
+  getPublicChatMemberProfile,
   getPublicYouthProfile,
   getPublicOrganisationProfile
 };

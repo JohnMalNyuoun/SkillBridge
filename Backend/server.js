@@ -4,6 +4,8 @@ const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');
 const compression = require('compression');
+const http = require('http');
+const { Server } = require('socket.io');
 
 // Load environment variables BEFORE any module that reads process.env at import time
 // (e.g. ./config/posthog instantiates the PostHog client using POSTHOG_API_KEY).
@@ -13,6 +15,7 @@ const connectDB = require('./config/db');
 const jwt =require('jsonwebtoken');
 const requestLogger = require('./middleware/requestLogger');
 const posthog = require('./config/posthog');
+const { registerGroupChatSocket } = require('./services/groupChatSocket');
 const { setupExpressRequestContext, setupExpressErrorHandler } = require('posthog-node');
 
 connectDB();
@@ -50,9 +53,11 @@ app.use('/api/youth/courses', require('./routes/youth/courses'));
 app.use('/api/youth/applications', require('./routes/youth/applications'));
 
 // Organisation routes
+app.use('/api/org', require('./routes/organisation/dashboard'));
 app.use('/api/org/profile', require('./routes/organisation/profile'));
 app.use('/api/org/courses', require('./routes/organisation/courses'));
 app.use('/api/org/applications', require('./routes/organisation/applications'));
+app.use('/api/call-sessions', require('./routes/callSessions'));
 
 app.use('/api/youth/notifications', require('./routes/youth/notifications'));
 app.use('/api/org/notifications', require('./routes/organisation/notifications'));
@@ -129,7 +134,18 @@ if (fs.existsSync(distPath)) {
 }
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+app.set('io', io);
+registerGroupChatSocket(io);
+
+server.listen(PORT, () => {
   console.log(`SkillBridge running on port ${PORT}`);
 });
 

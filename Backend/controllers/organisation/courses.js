@@ -127,7 +127,7 @@ const createCourse = async (req, res) => {
 // @access  Organisation
 const getOrgCourses = async (req, res) => {
   try {
-    const courses = await Course.find({ organisation: req.user.id })
+    const courses = await Course.find({ organisation: req.organizationId || req.user.id })
       .sort({ createdAt: -1 });
 
     return success(res, 200, 'Courses fetched', courses);
@@ -179,7 +179,7 @@ const getOrgCourse = async (req, res) => {
 
     const course = await Course.findOne({
       _id: req.params.id,
-      organisation: req.user.id
+      organisation: req.organizationId || req.user.id
     });
 
     if (!course) {
