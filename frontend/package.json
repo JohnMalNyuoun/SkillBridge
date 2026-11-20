@@ -20,6 +20,8 @@
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.11.3",
+    "@emnapi/runtime": "^1.11.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.63.0",
     "@types/react": "^19.2.14",
