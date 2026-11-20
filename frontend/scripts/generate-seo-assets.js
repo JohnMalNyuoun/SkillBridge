@@ -2,11 +2,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
+import { loadEnv } from 'vite';
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const distDirectory = path.resolve(scriptDirectory, '../dist');
 const indexPath = path.join(distDirectory, 'index.html');
-const configuredSiteUrl = process.env.VITE_SITE_URL?.trim();
+const viteEnvironment = loadEnv('production', path.resolve(scriptDirectory, '..'), 'VITE_');
+const configuredSiteUrl = (process.env.VITE_SITE_URL ?? viteEnvironment.VITE_SITE_URL)?.trim();
 
 let siteOrigin = null;
 if (configuredSiteUrl) {

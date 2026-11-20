@@ -1,5 +1,8 @@
 import { expect, test } from "@playwright/test";
 import { Buffer } from "node:buffer";
+import { loadEnv } from "vite";
+
+const viteEnvironment = loadEnv("development", process.cwd(), "VITE_");
 
 const roleRoutes = {
   youth: [
@@ -180,6 +183,9 @@ const mockYouthLogin = async (page, status = 200) => {
 test.describe("public app", () => {
   test("landing page exposes the main entry points", async ({ page }) => {
     await page.goto("/");
+    const expectedSiteOrigin = viteEnvironment.VITE_SITE_URL
+      ? new URL(viteEnvironment.VITE_SITE_URL).origin
+      : new URL(page.url()).origin;
 
     await expect(page).toHaveTitle(
       "SkillBridge | Courses and Opportunities in Kakuma",
@@ -194,11 +200,11 @@ test.describe("public app", () => {
     );
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute(
       "content",
-      `${new URL(page.url()).origin}/skillbridge-logo.jpg`,
+      `${expectedSiteOrigin}/skillbridge-logo.jpg`,
     );
     await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute(
       "content",
-      `${new URL(page.url()).origin}/skillbridge-logo.jpg`,
+      `${expectedSiteOrigin}/skillbridge-logo.jpg`,
     );
     await expect(page.locator('meta[property="og:image:alt"]')).toHaveAttribute(
       "content",
@@ -216,7 +222,13 @@ test.describe("public app", () => {
       page.getByRole("navigation").getByRole("link", { name: "Sign In" }),
     ).toHaveAttribute("href", "/login");
     await expect(
+      page.getByRole("navigation").getByRole("link", { name: "Updates" }),
+    ).toHaveAttribute("href", "/updates");
+    await expect(
       page.getByRole("navigation").getByRole("link", { name: "Get Started" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: "Get Started" }).first(),
     ).toHaveAttribute("href", "/register");
   });
 
@@ -227,10 +239,10 @@ test.describe("public app", () => {
     await page.goto("/");
 
     await page.getByRole("button", {
-    name: "Show instructions to install SkillBridge",
+      name: /show instructions to install (app|skillbridge)/i,
     }).click();
     await expect(page.getByRole("note")).toContainText(
-    "Open your browser menu and look for Install app or Add to Home screen",
+      "Open your browser menu and look for Install app or Add to Home screen",
     );
   });
 
@@ -239,27 +251,27 @@ test.describe("public app", () => {
   }) => {
     await page.goto("/");
     await page.evaluate(() => {
-    window.pwaPromptCalls = 0;
-    const event = new Event("beforeinstallprompt", { cancelable: true });
-    Object.defineProperties(event, {
-      prompt: {
-        value: () => {
-          window.pwaPromptCalls += 1;
+      window.pwaPromptCalls = 0;
+      const event = new Event("beforeinstallprompt", { cancelable: true });
+      Object.defineProperties(event, {
+        prompt: {
+          value: () => {
+            window.pwaPromptCalls += 1;
+          },
         },
-      },
-      userChoice: {
-        value: Promise.resolve({ outcome: "accepted" }),
-      },
-    });
-    window.dispatchEvent(event);
+        userChoice: {
+          value: Promise.resolve({ outcome: "accepted" }),
+        },
+      });
+      window.dispatchEvent(event);
     });
 
-    await page.getByRole("button", { name: "Install SkillBridge" }).click();
+    await page.getByRole("button", { name: /install (app|skillbridge)/i }).click();
     await expect.poll(() => page.evaluate(() => window.pwaPromptCalls)).toBe(1);
     await expect(
-    page.getByText(
-      "Installation accepted. Follow any remaining browser steps to finish.",
-    ),
+      page.getByText(
+        "Installation accepted. Follow any remaining browser steps to finish.",
+      ),
     ).toBeVisible();
   });
 
@@ -293,7 +305,7 @@ test.describe("public app", () => {
     await mockYouthLogin(page);
     await page.goto("/");
     await dispatchBeforeInstallPrompt(page, "dismissed");
-    await page.getByRole("button", { name: "Install SkillBridge" }).click();
+    await page.getByRole("button", { name: /install (app|skillbridge)/i }).click();
     await expect(
       page.getByText(
         "Installation was canceled. You can keep using SkillBridge in your browser.",
@@ -358,11 +370,11 @@ test.describe("public app", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("button", { name: /install skillbridge/i }),
+      page.getByRole("button", { name: /install (app|skillbridge)/i }),
     ).toHaveCount(0);
     await expect(
       page.getByRole("button", {
-        name: "Show instructions to install SkillBridge",
+        name: /show instructions to install (app|skillbridge)/i,
       }),
     ).toHaveCount(0);
   });

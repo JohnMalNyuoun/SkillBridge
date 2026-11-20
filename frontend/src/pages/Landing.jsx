@@ -37,82 +37,126 @@ const Landing = () => {
   return (
     <div style={{ background: 'var(--bg-base)', minHeight: '100vh' }}>
 
-      {/* Navbar */}
-      <nav style={{
+      {/* Responsive Navigation Bar */}
+      <header style={{
         position: 'sticky',
         top: 0,
         zIndex: 100,
         background: 'var(--nav-bg)',
         borderBottom: '1px solid var(--border-color)',
-        padding: '0 20px',
-        height: '60px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)'
       }}>
-        <Link to="/" aria-label="SkillBridge home" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none' }}>
-          <img src={skillBridgeLogo} alt="" style={{ width: '48px', height: '34px', objectFit: 'contain', background: '#fff', borderRadius: '6px' }} />
-          <span style={{ fontSize: '1.3rem', fontWeight: 900, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
-            SkillBridge
-          </span>
-        </Link>
+        <nav
+          aria-label="Main navigation"
+          style={{
+            maxWidth: '1140px',
+            margin: '0 auto',
+            padding: '0 clamp(16px, 3vw, 24px)',
+            height: '64px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px'
+          }}
+        >
+          {/* Brand */}
+          <Link
+            to="/"
+            aria-label="SkillBridge home"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '10px',
+              textDecoration: 'none',
+              flexShrink: 0
+            }}
+          >
+            <img
+              src={skillBridgeLogo}
+              alt=""
+              style={{
+                width: '40px',
+                height: '30px',
+                objectFit: 'contain',
+                background: '#ffffff',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)',
+                padding: '2px'
+              }}
+            />
+            <span
+              style={{
+                fontSize: 'clamp(1.15rem, 3.5vw, 1.35rem)',
+                fontWeight: 900,
+                color: 'var(--text-primary)',
+                letterSpacing: '-0.5px'
+              }}
+            >
+              SkillBridge
+            </span>
+          </Link>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link to="/updates" style={{
-            fontSize: '0.88rem',
-            fontWeight: 700,
-            color: 'var(--text-secondary)',
-            textDecoration: 'none'
+          {/* Navigation Links */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'clamp(8px, 2vw, 14px)'
           }}>
-            Updates
-          </Link>
-          <Link to="/login" style={{
-            fontSize: '0.88rem',
-            fontWeight: 700,
-            color: 'var(--text-secondary)',
-            textDecoration: 'none'
-          }}>
-            Sign In
-          </Link>
-          <Link to="/register" style={{
-            background: 'var(--fb-blue)',
-            color: 'var(--text-on-primary)',
-            padding: '10px 18px',
-            borderRadius: '10px',
-            fontSize: '0.88rem',
-            fontWeight: 700,
-            textDecoration: 'none',
-            boxShadow: '0 2px 8px rgba(24, 119, 242, 0.3)'
-          }}>
-            Get Started
-          </Link>
-        </div>
-      </nav>
+            <Link
+              to="/updates"
+              style={{
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                color: 'var(--text-secondary)',
+                textDecoration: 'none',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                transition: 'all 0.15s ease',
+                display: 'inline-flex',
+                alignItems: 'center'
+              }}
+            >
+              Updates
+            </Link>
+            <Link
+              to="/login"
+              style={{
+                fontSize: '0.9rem',
+                fontWeight: 700,
+                background: 'var(--fb-blue-subtle)',
+                textDecoration: 'none',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                transition: 'all 0.15s ease',
+                display: 'inline-flex',
+                alignItems: 'center',
+                minHeight: '38px'
+              }}
+            >
+              Sign In
+            </Link>
+          </div>
+        </nav>
+      </header>
 
-      {/* Hero */}
-      <div style={{
-        background: 'linear-gradient(160deg, var(--bg-base) 0%, var(--fb-blue-subtle) 100%)',
-        padding: '64px 20px 72px',
-        textAlign: 'center'
+      {/* Hero Section */}
+      <section style={{
+        background: 'linear-gradient(165deg, var(--bg-base) 0%, var(--fb-blue-subtle) 100%)',
+        padding: 'clamp(44px, 7vw, 76px) 20px clamp(52px, 8vw, 84px)',
+        textAlign: 'center',
+        position: 'relative'
       }}>
         <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <h3 style={{
-            fontSize: '1.1rem',
-            fontWeight: 800,
-            color: 'var(--fb-blue)',
-            marginBottom: '16px',
-            letterSpacing: '0.05em'
-          }}>
-            Built for Kakuma Youth
-          </h3>
+          
 
           <h1 style={{
-            fontSize: 'clamp(1.8rem, 6vw, 3rem)',
+            fontSize: 'clamp(1.9rem, 6vw, 3.1rem)',
             fontWeight: 800,
             color: 'var(--text-primary)',
-            lineHeight: '1.15',
-            marginBottom: '20px',
-            letterSpacing: '-0.5px'
+            lineHeight: '1.18',
+            marginBottom: '18px',
+            letterSpacing: '-0.7px'
           }}>
             Your Next Opportunity
             <br />
@@ -122,101 +166,182 @@ const Landing = () => {
           </h1>
 
           <p style={{
-            fontSize: 'clamp(0.95rem, 2vw, 1.05rem)',
+            fontSize: 'clamp(0.98rem, 2.2vw, 1.1rem)',
             color: 'var(--text-secondary)',
             lineHeight: '1.7',
-            marginBottom: '36px',
+            marginBottom: '32px',
             maxWidth: '520px',
-            margin: '0 auto 36px'
+            margin: '0 auto 32px'
           }}>
             SkillBridge connects youth in Kakuma Refugee Camp with courses,
             mentorship, and opportunities posted by NGOs and CBOs 
             all in one place.
           </p>
 
-          {!isStandalone && (
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '10px',
-              margin: '22px auto 0',
-              maxWidth: '480px'
-            }}>
-              {isInstallationComplete ? (
-                <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  SkillBridge is installed on this device.
-                </p>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleInstallClick}
-                    disabled={isPrompting}
-                    aria-label={isInstallAvailable
-                      ? 'Install SkillBridge'
-                      : 'Show instructions to install SkillBridge'}
-                    aria-expanded={showInstallGuide}
-                    aria-controls={showInstallGuide ? 'skillbridge-install-guide' : undefined}
-                    aria-busy={isPrompting}
-                    style={{
-                      minHeight: '44px',
-                      padding: '10px 18px',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '10px',
-                      background: 'var(--bg-card)',
-                      color: 'var(--fb-blue)',
-                      fontSize: '0.9rem',
-                      fontWeight: 700,
-                      boxShadow: 'var(--card-shadow)',
-                      opacity: isPrompting ? 0.7 : 1,
-                      cursor: isPrompting ? 'wait' : 'pointer'
-                    }}
-                  >
-                    {isPrompting ? 'Opening install prompt...' : 'Install SkillBridge'}
-                  </button>
+          {/* Hero Action Buttons */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            maxWidth: '460px',
+            margin: '0 auto'
+          }}>
+            {/* Primary Action Button: Get Started */}
+            <Link
+              to="/register"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                minHeight: '48px',
+                padding: '12px 28px',
+                borderRadius: '12px',
+                background: 'var(--fb-blue)',
+                color: 'var(--text-on-primary)',
+                fontSize: '1rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                boxShadow: '0 4px 14px rgba(24, 119, 242, 0.35)',
+                transition: 'all 0.2s ease',
+                flex: '1 1 180px',
+                textAlign: 'center',
+                boxSizing: 'border-box'
+              }}
+            >
+              Get Started
+            </Link>
 
-                  {showInstallGuide && (
-                    <div
-                      id="skillbridge-install-guide"
-                      role="note"
-                      style={{
-                        width: '100%',
-                        padding: '14px 16px',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '10px',
-                        background: 'var(--bg-card)',
-                        color: 'var(--text-secondary)',
-                        fontSize: '0.88rem',
-                        textAlign: 'left'
-                      }}
-                    >
-                      <strong style={{ color: 'var(--text-primary)' }}>Install from your browser</strong>
-                      <p style={{ marginTop: '6px' }}>
-                        {canShowInstallGuide
-                          ? 'On iPhone or iPad, open this page in Safari, tap Share, then choose Add to Home Screen.'
-                          : 'Open your browser menu and look for Install app or Add to Home screen. If your browser does not offer installation, you can continue using SkillBridge here.'}
-                      </p>
-                    </div>
-                  )}
+            {/* Secondary Action Button: Install App (omitted in standalone mode) */}
+            {!isStandalone && !isInstallationComplete && (
+              <button
+                type="button"
+                onClick={handleInstallClick}
+                disabled={isPrompting}
+                aria-label={
+                  isInstallAvailable
+                    ? 'Install App'
+                    : 'Show instructions to install App'
+                }
+                aria-expanded={showInstallGuide}
+                aria-controls={showInstallGuide ? 'skillbridge-install-guide' : undefined}
+                aria-busy={isPrompting}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  minHeight: '48px',
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  border: '2px solid var(--fb-blue)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--fb-blue)',
+                  fontSize: '1rem',
+                  fontWeight: 700,
+                  cursor: isPrompting ? 'wait' : 'pointer',
+                  opacity: isPrompting ? 0.7 : 1,
+                  boxShadow: 'var(--card-shadow)',
+                  transition: 'all 0.2s ease',
+                  flex: '1 1 180px',
+                  textAlign: 'center',
+                  boxSizing: 'border-box'
+                }}
+              >
+                {/* Smartphone + Download Icon */}
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                  style={{ flexShrink: 0 }}
+                >
+                  <rect x="5" y="2" width="14" height="20" rx="3" />
+                  <path d="M12 18h.01" />
+                  <path d="M12 6v6m-2.5-2.5 2.5 2.5 2.5-2.5" />
+                </svg>
+                <span>{isPrompting ? 'Opening prompt...' : 'Install App'}</span>
+              </button>
+            )}
+          </div>
 
-                  {installMessage && (
-                    <p role="status" aria-live="polite" style={{
-                      color: 'var(--text-secondary)',
-                      fontSize: '0.85rem'
-                    }}>
-                      {installMessage}
-                    </p>
-                  )}
-                </>
-              )}
+          {/* Browser Installation Guidance Note */}
+          {showInstallGuide && !isStandalone && (
+            <div
+              id="skillbridge-install-guide"
+              role="note"
+              style={{
+                maxWidth: '460px',
+                margin: '18px auto 0',
+                padding: '16px 20px',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                background: 'var(--bg-card)',
+                color: 'var(--text-secondary)',
+                fontSize: '0.9rem',
+                textAlign: 'left',
+                boxShadow: 'var(--card-shadow)'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--fb-blue)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="16" x2="12" y2="12" />
+                  <line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+                <strong style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>
+                  {canShowInstallGuide ? 'Install on iPhone or iPad' : 'Install from your browser'}
+                </strong>
+              </div>
+              <p style={{ margin: 0, lineHeight: 1.6 }}>
+                {canShowInstallGuide
+                  ? 'On iPhone or iPad, open this page in Safari, tap Share, then choose Add to Home Screen.'
+                  : 'Open your browser menu and look for Install app or Add to Home screen. If your browser does not offer installation, you can continue using SkillBridge here.'}
+              </p>
             </div>
           )}
+
+          {/* User Feedback Message */}
+          {installMessage && !isStandalone && (
+            <p
+              role="status"
+              aria-live="polite"
+              style={{
+                marginTop: '14px',
+                color: 'var(--text-secondary)',
+                fontSize: '0.88rem'
+              }}
+            >
+              {installMessage}
+            </p>
+          )}
+
+          {/* If already installed and not running in standalone */}
+          {isInstallationComplete && !isStandalone && (
+            <p
+              role="status"
+              style={{
+                marginTop: '14px',
+                color: 'var(--success-text)',
+                fontSize: '0.9rem',
+                fontWeight: 600
+              }}
+            >
+              SkillBridge is installed on this device.
+            </p>
+          )}
         </div>
-      </div>
+      </section>
 
       {/* The Problem */}
-      <div style={{
+      <section style={{
         background: 'var(--bg-section-alt)',
         padding: '72px 24px',
         textAlign: 'center'
@@ -245,10 +370,10 @@ const Landing = () => {
             </strong>
           </p>
         </div>
-      </div>
+      </section>
 
       {/* How it works */}
-      <div style={{
+      <section style={{
         background: 'linear-gradient(135deg, var(--bg-card) 0%, var(--fb-blue-subtle) 100%)',
         padding: '72px 24px'
       }}>
@@ -270,22 +395,22 @@ const Landing = () => {
           }}>
             {[
               {
-                
+                number: '1',
                 title: 'Create Your Account',
                 desc: 'Register as a youth or organisation in under 2 minutes'
               },
               {
-                
+                number: '2',
                 title: 'Explore Opportunities',
                 desc: 'Browse courses posted by verified NGOs and CBOs in Kakuma'
               },
               {
-                
+                number: '3',
                 title: 'Apply Directly',
                 desc: 'Submit your application inside SkillBridge — no WhatsApp needed'
               },
               {
-                
+                number: '4',
                 title: 'Track Everything',
                 desc: 'Get notified when you are shortlisted, accepted or rejected'
               }
@@ -319,10 +444,10 @@ const Landing = () => {
             ))}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* For Youth / For Orgs */}
-      <div style={{ padding: '72px 24px', background: 'var(--bg-base)' }}>
+      <section style={{ padding: '72px 24px', background: 'var(--bg-base)' }}>
         <div style={{
           maxWidth: '720px',
           margin: '0 auto',
@@ -458,10 +583,10 @@ const Landing = () => {
             </Link>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Impact Dashboard — Secure Donors */}
-      <div style={{
+      <section style={{
         background: 'var(--bg-section-alt)',
         padding: '80px 24px'
       }}>
@@ -698,10 +823,10 @@ const Landing = () => {
             </div>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* CTA Banner */}
-      <div style={{
+      <section style={{
         background: 'linear-gradient(135deg, var(--fb-blue-subtle), var(--bg-section-alt))',
         padding: '72px 24px',
         textAlign: 'center'
@@ -735,7 +860,7 @@ const Landing = () => {
             Get Started Free
           </Link>
         </div>
-      </div>
+      </section>
 
       {/* Footer */}
       <footer style={{
