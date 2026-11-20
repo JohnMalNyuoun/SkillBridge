@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { orgLogin } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
+import { notifyPwaLoginSuccess } from '../../utils/pwaInstallPrompt';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 
@@ -25,6 +26,7 @@ const OrgLogin = () => {
     try {
       const res = await orgLogin(form);
       login(res.data.organisation, res.data.token);
+      notifyPwaLoginSuccess(res.data.organisation?._id ?? res.data.organisation?.id);
       navigate('/org/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');

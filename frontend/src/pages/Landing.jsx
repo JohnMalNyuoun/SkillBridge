@@ -1,7 +1,39 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import skillBridgeLogo from '../assets/skillbridge logo.jpg';
+import usePwaInstall from '../hooks/usePwaInstall';
 
 const Landing = () => {
+  const {
+    isInstallAvailable,
+    isStandalone,
+    isInstallationComplete,
+    canShowInstallGuide,
+    isPrompting,
+    requestInstall,
+  } = usePwaInstall();
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [installMessage, setInstallMessage] = useState('');
+
+  const handleInstallClick = async () => {
+    setInstallMessage('');
+    if (!isInstallAvailable) {
+      setShowInstallGuide((visible) => !visible);
+      return;
+    }
+
+    setShowInstallGuide(false);
+    const result = await requestInstall();
+    if (result.outcome === 'dismissed') {
+      setInstallMessage('Installation was canceled. You can keep using SkillBridge in your browser.');
+    } else if (result.outcome === 'unavailable' || result.outcome === 'error') {
+      setShowInstallGuide(true);
+      setInstallMessage('The install prompt is unavailable. You can try the browser instructions below.');
+    } else if (result.outcome === 'accepted') {
+      setInstallMessage('Installation accepted. Follow any remaining browser steps to finish.');
+    }
+  };
+
   return (
     <div style={{ background: 'var(--bg-base)', minHeight: '100vh' }}>
 
@@ -102,6 +134,84 @@ const Landing = () => {
             all in one place.
           </p>
 
+          {!isStandalone && (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '10px',
+              margin: '22px auto 0',
+              maxWidth: '480px'
+            }}>
+              {isInstallationComplete ? (
+                <p role="status" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  SkillBridge is installed on this device.
+                </p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleInstallClick}
+                    disabled={isPrompting}
+                    aria-label={isInstallAvailable
+                      ? 'Install SkillBridge'
+                      : 'Show instructions to install SkillBridge'}
+                    aria-expanded={showInstallGuide}
+                    aria-controls={showInstallGuide ? 'skillbridge-install-guide' : undefined}
+                    aria-busy={isPrompting}
+                    style={{
+                      minHeight: '44px',
+                      padding: '10px 18px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '10px',
+                      background: 'var(--bg-card)',
+                      color: 'var(--fb-blue)',
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      boxShadow: 'var(--card-shadow)',
+                      opacity: isPrompting ? 0.7 : 1,
+                      cursor: isPrompting ? 'wait' : 'pointer'
+                    }}
+                  >
+                    {isPrompting ? 'Opening install prompt...' : 'Install SkillBridge'}
+                  </button>
+
+                  {showInstallGuide && (
+                    <div
+                      id="skillbridge-install-guide"
+                      role="note"
+                      style={{
+                        width: '100%',
+                        padding: '14px 16px',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '10px',
+                        background: 'var(--bg-card)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.88rem',
+                        textAlign: 'left'
+                      }}
+                    >
+                      <strong style={{ color: 'var(--text-primary)' }}>Install from your browser</strong>
+                      <p style={{ marginTop: '6px' }}>
+                        {canShowInstallGuide
+                          ? 'On iPhone or iPad, open this page in Safari, tap Share, then choose Add to Home Screen.'
+                          : 'Open your browser menu and look for Install app or Add to Home screen. If your browser does not offer installation, you can continue using SkillBridge here.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {installMessage && (
+                    <p role="status" aria-live="polite" style={{
+                      color: 'var(--text-secondary)',
+                      fontSize: '0.85rem'
+                    }}>
+                      {installMessage}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

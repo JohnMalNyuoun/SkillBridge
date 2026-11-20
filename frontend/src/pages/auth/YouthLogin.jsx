@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { youthLogin } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
+import { notifyPwaLoginSuccess } from '../../utils/pwaInstallPrompt';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 
@@ -26,6 +27,7 @@ const YouthLogin = () => {
     try {
       const res = await youthLogin(form);
       login(res.data.user, res.data.token);
+      notifyPwaLoginSuccess(res.data.user?._id ?? res.data.user?.id);
       if (res.data.user.role === 'admin') {
         navigate('/admin/dashboard');
       } else if (['org_admin', 'staff', 'trainee'].includes(res.data.user.role)) {

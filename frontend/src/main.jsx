@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { LanguageProvider } from './context/LanguageContext'
 import { NotificationProvider } from './context/NotificationContext'
+import { PwaInstallProvider } from './context/PwaInstallContext'
 import { initPosthog } from './lib/posthog'
 import { getUserTheme } from './utils/themePreference'
 import './index.css'
@@ -27,11 +28,13 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <LanguageProvider>
-          <NotificationProvider>
-            <App />
-          </NotificationProvider>
-        </LanguageProvider>
+        <PwaInstallProvider>
+          <LanguageProvider>
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
+          </LanguageProvider>
+        </PwaInstallProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

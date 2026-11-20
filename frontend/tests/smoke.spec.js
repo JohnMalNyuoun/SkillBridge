@@ -107,6 +107,76 @@ const authenticateAs = async (page, role) => {
   });
 };
 
+const dispatchBeforeInstallPrompt = async (page, outcome = "accepted") => {
+  await page.evaluate((installOutcome) => {
+    window.installPromptCalls = 0;
+    const event = new Event("beforeinstallprompt", { cancelable: true });
+    Object.defineProperties(event, {
+      prompt: {
+        value: () => {
+          window.installPromptCalls += 1;
+        },
+      },
+      userChoice: {
+        value: Promise.resolve({ outcome: installOutcome }),
+      },
+    });
+    window.dispatchEvent(event);
+  }, outcome);
+};
+
+const emulateStandaloneDisplayMode = async (page) => {
+  await page.addInitScript(() => {
+    const nativeMatchMedia = window.matchMedia.bind(window);
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      value: (query) => query === "(display-mode: standalone)"
+        ? {
+            matches: true,
+            media: query,
+            addListener() {},
+            removeListener() {},
+            addEventListener() {},
+            removeEventListener() {},
+          }
+        : nativeMatchMedia(query),
+    });
+  });
+};
+
+const mockYouthLogin = async (page, status = 200) => {
+  await page.route("**/api/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    if (pathname.endsWith("/auth/youth/login")) {
+      await route.fulfill({
+        status,
+        contentType: "application/json",
+        body: JSON.stringify(
+          status === 200
+            ? {
+                data: {
+                  user: {
+                    _id: "pwa-youth-user",
+                    name: "PWA Test User",
+                    role: "youth",
+                  },
+                  token: "pwa-test-token",
+                },
+              }
+            : { message: "Invalid credentials" },
+        ),
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ data: [] }),
+    });
+  });
+};
+
 test.describe("public app", () => {
   test("landing page exposes the main entry points", async ({ page }) => {
     await page.goto("/");
@@ -148,6 +218,187 @@ test.describe("public app", () => {
     await expect(
       page.getByRole("navigation").getByRole("link", { name: "Get Started" }),
     ).toHaveAttribute("href", "/register");
+  });
+
+  test("landing page shows installation instructions when prompting is unavailable", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto("/");
+
+    await page.getByRole("button", {
+    name: "Show instructions to install SkillBridge",
+    }).click();
+    await expect(page.getByRole("note")).toContainText(
+    "Open your browser menu and look for Install app or Add to Home screen",
+    );
+  });
+
+  test("landing page opens the deferred browser installation prompt", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await page.evaluate(() => {
+    window.pwaPromptCalls = 0;
+    const event = new Event("beforeinstallprompt", { cancelable: true });
+    Object.defineProperties(event, {
+      prompt: {
+        value: () => {
+          window.pwaPromptCalls += 1;
+        },
+      },
+      userChoice: {
+        value: Promise.resolve({ outcome: "accepted" }),
+      },
+    });
+    window.dispatchEvent(event);
+    });
+
+    await page.getByRole("button", { name: "Install SkillBridge" }).click();
+    await expect.poll(() => page.evaluate(() => window.pwaPromptCalls)).toBe(1);
+    await expect(
+    page.getByText(
+      "Installation accepted. Follow any remaining browser steps to finish.",
+    ),
+    ).toBeVisible();
+  });
+
+  test("first successful login can install SkillBridge and saves the choice per user", async ({
+    page,
+  }) => {
+    await mockYouthLogin(page);
+    await page.goto("/login");
+    await dispatchBeforeInstallPrompt(page);
+    await page.locator('input[name="email"]').fill("pwa@example.com");
+    await page.locator('input[name="password"]').fill("test-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    const prompt = page.getByRole("region", { name: "Install SkillBridge" });
+    await expect(prompt).toBeVisible();
+    await expect(prompt).toContainText(
+      "Add SkillBridge to your phone's home screen for quicker access",
+    );
+    await prompt.getByRole("button", { name: "Install SkillBridge" }).click();
+
+    await expect.poll(() => page.evaluate(() => window.installPromptCalls)).toBe(1);
+    await expect(prompt).toBeHidden();
+    await expect.poll(() => page.evaluate(
+      () => localStorage.getItem("skillbridge:pwa-install-choice:pwa-youth-user"),
+    )).toBe("install");
+  });
+
+  test("a landing-page install attempt is not offered again from stale prompt state", async ({
+    page,
+  }) => {
+    await mockYouthLogin(page);
+    await page.goto("/");
+    await dispatchBeforeInstallPrompt(page, "dismissed");
+    await page.getByRole("button", { name: "Install SkillBridge" }).click();
+    await expect(
+      page.getByText(
+        "Installation was canceled. You can keep using SkillBridge in your browser.",
+      ),
+    ).toBeVisible();
+
+    await page.goto("/login");
+    await page.locator('input[name="email"]').fill("pwa@example.com");
+    await page.locator('input[name="password"]').fill("test-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(
+      page.getByRole("region", { name: "Install SkillBridge" }),
+    ).toHaveCount(0);
+  });
+
+  test("continuing on the website suppresses the prompt for that user on later logins", async ({
+    page,
+  }) => {
+    await mockYouthLogin(page);
+    await page.goto("/login");
+    await dispatchBeforeInstallPrompt(page);
+    await page.locator('input[name="email"]').fill("pwa@example.com");
+    await page.locator('input[name="password"]').fill("test-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    const prompt = page.getByRole("region", { name: "Install SkillBridge" });
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("button", { name: "Continue using website" }).click();
+    await expect(prompt).toBeHidden();
+    await expect.poll(() => page.evaluate(
+      () => localStorage.getItem("skillbridge:pwa-install-choice:pwa-youth-user"),
+    )).toBe("continue");
+
+    await page.goto("/login");
+    await dispatchBeforeInstallPrompt(page);
+    await page.locator('input[name="email"]').fill("pwa@example.com");
+    await page.locator('input[name="password"]').fill("test-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+    await expect(prompt).toBeHidden();
+  });
+
+  test("failed login does not show the installation prompt", async ({ page }) => {
+    await mockYouthLogin(page, 401);
+    await page.goto("/login");
+    await dispatchBeforeInstallPrompt(page);
+    await page.locator('input[name="email"]').fill("pwa@example.com");
+    await page.locator('input[name="password"]').fill("wrong-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    await expect(page.getByText("Invalid credentials")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Install SkillBridge" }),
+    ).toHaveCount(0);
+  });
+
+  test("installed standalone landing page hides installation controls", async ({
+    page,
+  }) => {
+    await emulateStandaloneDisplayMode(page);
+    await page.goto("/");
+
+    await expect(
+      page.getByRole("button", { name: /install skillbridge/i }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", {
+        name: "Show instructions to install SkillBridge",
+      }),
+    ).toHaveCount(0);
+  });
+
+  test("iOS standalone mode suppresses the first-login installation prompt", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "standalone", {
+        configurable: true,
+        value: true,
+      });
+    });
+    await mockYouthLogin(page);
+    await page.goto("/login");
+    await dispatchBeforeInstallPrompt(page);
+    await page.locator('input[name="email"]').fill("pwa@example.com");
+    await page.locator('input[name="password"]').fill("test-password");
+    await page.getByRole("button", { name: "Sign In" }).click();
+
+    await expect(page).toHaveURL(/\/home$/);
+    await expect(
+      page.getByRole("region", { name: "Install SkillBridge" }),
+    ).toHaveCount(0);
+  });
+
+  test("standalone app entry continues to resolve React Router routes", async ({
+    page,
+  }) => {
+    await emulateStandaloneDisplayMode(page);
+    await page.goto("/login");
+
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(
+      page.getByRole("heading", { name: "Sign in to your account" }),
+    ).toBeVisible();
   });
 
   test("updates page renders when the public feed is empty", async ({

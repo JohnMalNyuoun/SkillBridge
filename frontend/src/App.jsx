@@ -57,6 +57,8 @@ import PublicOrganisationProfile from './pages/common/PublicOrganisationProfile'
 import Seo from './components/common/Seo';
 import CourseCallInvitationToast from './components/common/CourseCallInvitationToast';
 import GroupChatMessageToast from './components/common/GroupChatMessageToast';
+import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
+import PwaFirstLoginPrompt from './components/common/PwaFirstLoginPrompt';
 // Route guards 
 const AuthRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -100,6 +102,8 @@ function App () {
       <Seo />
       <CourseCallInvitationToast />
       <GroupChatMessageToast />
+      <PwaUpdatePrompt />
+      <PwaFirstLoginPrompt />
       <Routes key={routeRefreshKey}>
         {/* Public */}
 
