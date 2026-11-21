@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const {
   canAccessChat,
   canManageChatMembers,
-  isChatAdministrator
+  canManageChatModerators,
+  isChatAdministrator,
+  isRemovedFromChat
 } = require('../services/groupChatAccess');
 
 const chat = {
@@ -30,4 +32,29 @@ test('ordinary participants can read chat but cannot manage its members', () => 
   assert.equal(canAccessChat(chat, participant), true);
   assert.equal(canManageChatMembers(chat, participant), false);
   assert.equal(canAccessChat(chat, { id: 'other-id', role: 'youth' }), false);
+});
+
+test('removed enrolled users do not retain group access', () => {
+  const removedChat = {
+    ...chat,
+    participants: ['student-id'],
+    removedParticipants: ['student-id']
+  };
+  const youth = { id: 'student-id', role: 'youth' };
+
+  assert.equal(isRemovedFromChat(removedChat, youth.id), true);
+  assert.equal(canAccessChat(removedChat, youth), false);
+});
+
+test('only organisation administrators can appoint or remove chat administrators', () => {
+  assert.equal(canManageChatModerators(chat, {
+    id: 'org-admin',
+    role: 'org_admin',
+    createdByOrg: 'organisation-id'
+  }), true);
+  assert.equal(canManageChatModerators(chat, {
+    id: 'moderator-id',
+    role: 'staff',
+    createdByOrg: 'organisation-id'
+  }), false);
 });

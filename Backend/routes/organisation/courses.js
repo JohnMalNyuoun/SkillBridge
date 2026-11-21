@@ -13,6 +13,7 @@ const {
 const {
   createCourseGroupChat,
   getCourseGroupChat,
+  searchGroupChatMembers,
   updateGroupChatModerators,
   updateGroupChatMembers,
   requireGroupChatAccess,
@@ -70,6 +71,7 @@ router.get(
   downloadChatAttachment
 );
 router.get('/:courseId/group-chat', protect, getCourseGroupChat);
+router.get('/:courseId/group-chat/members/search', protect, searchGroupChatMembers);
 router.patch('/:courseId/group-chat/moderators', protect, isOrgAdmin, updateGroupChatModerators);
 router.patch('/:courseId/group-chat/members', protect, updateGroupChatMembers);
 router.post('/:courseId/group-calls', protect, isOrgApplicantReviewer, startCourseCall);

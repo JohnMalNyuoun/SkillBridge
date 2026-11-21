@@ -1,0 +1,44 @@
+{
+  "name": "fursahub-backend",
+  "version": "0.1.0",
+  "description": "Fursahub backend API (Node.js/Express + MongoDB)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "lint": "eslint .",
+    "build:frontend": "cd ../frontend && npm install && npm run build",
+    "build": "npm run build:frontend",
+    "start:prod": "npm run build && node server.js",
+    "seed:demo": "node scripts/seed-demo.js",
+    "seed:demo:clean": "node scripts/seed-demo.js clean"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^1.41.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-async-handler": "^1.2.0",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "joi": "^17.13.3",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.8.1",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "multer-storage-cloudinary": "^4.0.0",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^6.9.16",
+    "papaparse": "^5.4.1",
+    "pdfkit": "^0.15.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.15.0",
+    "nodemon": "^3.1.7"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

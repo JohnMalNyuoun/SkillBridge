@@ -4,6 +4,7 @@ import Navbar from '../../components/common/Navbar';
 import useAuth from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
 import { getAdminProfile, removeAdminPhoto, updateAdminPhoto } from '../../services/adminProfileService';
+import { getThemePreference, updateThemePreference } from '../../services/profileService';
 import { resolveImageUrl } from '../../utils/imageUrl';
 import { getUserTheme, saveUserTheme } from '../../utils/themePreference';
 
@@ -72,9 +73,28 @@ const AdminSettings = () => {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getThemePreference()
+      .then((response) => {
+        if (cancelled) return;
+        const serverTheme = response?.data?.theme;
+        if (serverTheme === 'light' || serverTheme === 'dark') {
+          setSettings((current) => ({ ...current, theme: serverTheme }));
+          saveUserTheme(user, serverTheme);
+          updateUser({ theme: serverTheme });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user, updateUser]);
+
   useEffect(() => {
     sessionStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    document.documentElement.setAttribute('data-theme', settings.theme);
+    saveUserTheme(user, settings.theme);
   }, [settings]);
 
   const toggleAlert = (key) => {
@@ -317,12 +337,17 @@ const AdminSettings = () => {
             </p>
             <button
               type="button"
-              onClick={() => {
+              onClick={async () => {
                 const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
-                saveUserTheme(user, nextTheme);
-                updateUser({ theme: nextTheme });
-                setSettings((current) => ({ ...current, theme: nextTheme }));
-                setNotice('Theme updated.');
+                try {
+                  await updateThemePreference(nextTheme);
+                  saveUserTheme(user, nextTheme);
+                  updateUser({ theme: nextTheme });
+                  setSettings((current) => ({ ...current, theme: nextTheme }));
+                  setNotice('Theme updated.');
+                } catch (err) {
+                  setPhotoError(err.response?.data?.message || 'Could not update theme.');
+                }
               }}
               role="switch"
               aria-checked={settings.theme === 'dark'}

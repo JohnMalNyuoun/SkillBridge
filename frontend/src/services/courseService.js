@@ -85,6 +85,13 @@ export const updateGroupChatMembers = async (courseId, data) => {
   return response.data;
 };
 
+export const searchGroupChatMembers = async (courseId, query) => {
+  const response = await api.get(`/org/courses/${courseId}/group-chat/members/search`, {
+    params: { q: query }
+  });
+  return response.data;
+};
+
 export const uploadGroupChatAttachment = async (courseId, file) => {
   const formData = new FormData();
   formData.append('file', file);

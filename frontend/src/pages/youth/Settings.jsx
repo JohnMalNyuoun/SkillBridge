@@ -7,7 +7,8 @@ import { resolveImageUrl } from '../../utils/imageUrl';
 import { getUserTheme, saveUserTheme } from '../../utils/themePreference';
 import {
   getYouthProfile,
-  updateYouthTheme
+  getThemePreference,
+  updateThemePreference
 } from '../../services/profileService';
 
 const YouthSettings = () => {
@@ -31,9 +32,20 @@ const YouthSettings = () => {
       .then((res) => {
         if (!active) return;
         setProfile(res.data);
-        const theme = res.data.theme || 'light';
+        const theme = getUserTheme(user, res.data.theme);
         setPreferences({ theme });
-        document.documentElement.setAttribute('data-theme', theme);
+        saveUserTheme(user, theme);
+        updateUser({ theme });
+      })
+      .then(() => getThemePreference())
+      .then((themeRes) => {
+        if (!active) return;
+        const serverTheme = themeRes?.data?.theme;
+        if (serverTheme === 'light' || serverTheme === 'dark') {
+          setPreferences({ theme: serverTheme });
+          saveUserTheme(user, serverTheme);
+          updateUser({ theme: serverTheme });
+        }
       })
       .catch((err) => {
         if (active) setError(err.response?.data?.message || 'Failed to load menu');
@@ -61,11 +73,10 @@ const YouthSettings = () => {
     setNotice('');
     try {
       const nextTheme = preferences.theme === 'dark' ? 'light' : 'dark';
-      await updateYouthTheme(nextTheme);
+      await updateThemePreference(nextTheme);
       saveUserTheme(user, nextTheme);
       updateUser({ theme: nextTheme });
       setPreferences((current) => ({ ...current, theme: nextTheme }));
-      document.documentElement.setAttribute('data-theme', nextTheme);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update theme');
     }

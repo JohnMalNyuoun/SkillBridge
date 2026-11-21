@@ -17,7 +17,9 @@ const {
   includesId,
   isChatAdministrator,
   canAccessChat,
-  canManageChatMembers
+  canManageChatMembers,
+  canManageChatModerators,
+  isRemovedFromChat
 } = require('../../services/groupChatAccess');
 
 const getAuthorizedChatContext = async (req) => {
@@ -32,7 +34,7 @@ const getAuthorizedChatContext = async (req) => {
   const enrolledIds = await getCourseEnrollmentIds(course);
   const actor = await getActor(req);
   const isEnrolled = actor && includesId(enrolledIds, actor.id);
-  if (!actor || (!canAccessChat(chat, actor) && !isEnrolled)) {
+  if (!actor || isRemovedFromChat(chat, actor.id) || (!canAccessChat(chat, actor) && !isEnrolled)) {
     return { status: 403, message: 'You are not a member of this course group chat.' };
   }
 
@@ -188,7 +190,7 @@ const getCourseGroupChat = async (req, res) => {
     const enrolledIds = await getCourseEnrollmentIds(course);
     const actor = await getActor(req);
     const isEnrolled = actor && includesId(enrolledIds, actor.id);
-    if (!actor || (!canAccessChat(chat, actor) && !isEnrolled)) {
+    if (!actor || isRemovedFromChat(chat, actor.id) || (!canAccessChat(chat, actor) && !isEnrolled)) {
       return error(res, 403, 'You are not a member of this course group chat.');
     }
 
@@ -199,10 +201,11 @@ const getCourseGroupChat = async (req, res) => {
       );
     }
 
-    const [populatedChat, messages, enrolledUsers, eligibleModerators] = await Promise.all([
+    const [populatedChat, messages, eligibleModerators] = await Promise.all([
       GroupChat.findById(chat._id)
-        .populate('participants', 'fullName email role photo')
-        .populate('moderators', 'fullName email role photo')
+        .populate('organisation', 'name logo')
+        .populate('participants', 'fullName role photo')
+        .populate('moderators', 'fullName role photo')
         .lean(),
       GroupChatMessage.find({ groupChat: chat._id })
         .sort({ createdAt: -1 })
@@ -216,19 +219,15 @@ const getCourseGroupChat = async (req, res) => {
         })
         .populate('reactions.user', 'fullName')
         .lean(),
-      User.find({ _id: { $in: enrolledIds } })
-        .select('fullName email role')
-        .lean(),
       User.find({
         createdByOrg: chat.organisation,
         role: { $in: ['staff', 'trainee'] },
         isActive: true,
         isSuspended: false
-      }).select('fullName email role').lean()
+      }).select('fullName role photo').lean()
     ]);
     if (!populatedChat) return error(res, 404, 'Course group chat not found.');
 
-    const participantIds = new Set((populatedChat.participants || []).map((user) => idString(user._id)));
     const moderatorIds = new Set((populatedChat.moderators || []).map((user) => idString(user._id)));
     const admin = isChatAdministrator(chat, actor);
 
@@ -236,10 +235,53 @@ const getCourseGroupChat = async (req, res) => {
       chat: { ...populatedChat, name: course.title },
       course: { _id: course._id, title: course.title },
       messages: messages.reverse(),
-      availableMembers: enrolledUsers.filter((user) => !participantIds.has(idString(user._id))),
       availableModerators: eligibleModerators.filter((user) => !moderatorIds.has(idString(user._id))),
       canManageMembers: canManageChatMembers(chat, actor),
-      canManageModerators: admin
+      canManageModerators: canManageChatModerators(chat, actor),
+      isGroupOwner: admin
+    });
+  } catch (err) {
+    return error(res, 500, err.message);
+  }
+};
+
+const searchGroupChatMembers = async (req, res) => {
+  try {
+    if (!mongoose.isObjectIdOrHexString(req.params.courseId)) {
+      return error(res, 400, 'Invalid course ID.');
+    }
+
+    const query = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+    if (query.length < 2 || query.length > 60) {
+      return error(res, 400, 'Search must be between 2 and 60 characters.');
+    }
+
+    const course = await getCourse(req.params.courseId);
+    if (!course) return error(res, 404, 'Course not found.');
+    const chat = await getChatForCourse(course);
+    if (!chat) return error(res, 404, 'A group chat has not been created for this course.');
+
+    const actor = await getActor(req);
+    if (!actor || !canManageChatMembers(chat, actor)) {
+      return error(res, 403, 'You are not allowed to manage this group chat.');
+    }
+
+    const enrolledIds = await getCourseEnrollmentIds(course);
+    const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const members = await User.find({
+      _id: { $in: enrolledIds },
+      role: 'youth',
+      isActive: true,
+      isSuspended: false,
+      fullName: { $regex: escapedQuery, $options: 'i' }
+    })
+      .select('fullName photo role')
+      .limit(20)
+      .lean();
+    const currentMembers = new Set((chat.participants || []).map(idString));
+
+    return success(res, 200, 'Eligible group members found.', {
+      members: members.filter((member) => !currentMembers.has(idString(member._id)))
     });
   } catch (err) {
     return error(res, 500, err.message);
@@ -282,11 +324,10 @@ const updateGroupChatModerators = async (req, res) => {
       await GroupChat.updateOne({ _id: chat._id }, { $addToSet: { moderators: moderator._id } });
     } else {
       await GroupChat.updateOne({ _id: chat._id }, { $pull: { moderators: moderator._id } });
-      if (!includesId(chat.participants, moderator._id)) {
-        await revokeChatSocketAccess(req, chat._id, moderator._id);
-      }
+      await revokeChatSocketAccess(req, chat._id, moderator._id);
     }
 
+    emitMembershipChanged(req, chat._id);
     return success(res, 200, `Chat moderator ${action === 'add' ? 'added' : 'removed'}.`);
   } catch (err) {
     return error(res, 500, err.message);
@@ -313,21 +354,53 @@ const updateGroupChatMembers = async (req, res) => {
       return error(res, 403, 'Only organisation admins and assigned chat moderators can manage members.');
     }
 
+    if (action === 'remove' && (
+      idString(userId) === idString(chat.organisation) ||
+      (chat.createdByModel === 'User' && idString(userId) === idString(chat.createdBy))
+    )) {
+      return error(res, 403, 'The group owner cannot be removed.');
+    }
+
     const enrolledIds = await getCourseEnrollmentIds(course);
     if (!enrolledIds.includes(idString(userId))) {
       return error(res, 400, 'Only currently enrolled students can be added to this group chat.');
     }
 
     if (action === 'add') {
-      await GroupChat.updateOne({ _id: chat._id }, { $addToSet: { participants: userId } });
+      const eligibleUser = await User.findOne({
+        _id: userId,
+        role: 'youth',
+        isActive: true,
+        isSuspended: false
+      }).select('_id');
+      if (!eligibleUser) return error(res, 400, 'Only active youth members can be added.');
+
+      await GroupChat.updateOne(
+        { _id: chat._id },
+        {
+          $addToSet: { participants: userId },
+          $pull: { removedParticipants: userId }
+        }
+      );
     } else {
       const isParticipant = includesId(chat.participants, userId);
       if (!isParticipant) return error(res, 404, 'Group chat member not found.');
 
-      await GroupChat.updateOne({ _id: chat._id }, { $pull: { participants: userId } });
+      const isModerator = includesId(chat.moderators || [], userId);
+      if (isModerator && !canManageChatModerators(chat, actor)) {
+        return error(res, 403, 'Only the group owner or organisation administrator can remove an administrator.');
+      }
+
+      const update = {
+        $pull: { participants: userId },
+        $addToSet: { removedParticipants: userId }
+      };
+      if (isModerator) update.$pull.moderators = userId;
+      await GroupChat.updateOne({ _id: chat._id }, update);
       await revokeChatSocketAccess(req, chat._id, userId);
     }
 
+    emitMembershipChanged(req, chat._id);
     return success(res, 200, `Group chat member ${action === 'add' ? 'added' : 'removed'}.`);
   } catch (err) {
     return error(res, 500, err.message);
@@ -376,6 +449,15 @@ const downloadChatAttachment = async (req, res) => {
 };
 
 const revokeChatSocketAccess = async (req, chatId, userId) => {
+  const updatedChat = await GroupChat.findById(chatId).select('participants moderators');
+  if (
+    updatedChat &&
+    (includesId(updatedChat.participants || [], userId) ||
+      includesId(updatedChat.moderators || [], userId))
+  ) {
+    return;
+  }
+
   const io = req.app.get('io');
   if (!io) return;
 
@@ -401,9 +483,16 @@ const revokeChatSocketAccess = async (req, chatId, userId) => {
   }
 };
 
+const emitMembershipChanged = (req, chatId) => {
+  const io = req.app && req.app.get('io');
+  if (!io) return;
+  io.to(`group-chat:${idString(chatId)}`).emit('group-chat:members-updated');
+};
+
 module.exports = {
   createCourseGroupChat,
   getCourseGroupChat,
+  searchGroupChatMembers,
   updateGroupChatModerators,
   updateGroupChatMembers,
   requireGroupChatAccess,

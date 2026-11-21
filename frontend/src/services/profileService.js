@@ -55,6 +55,16 @@ export const updateYouthTheme = async (theme) => {
   return response.data;
 };
 
+export const getThemePreference = async () => {
+  const response = await api.get('/auth/theme');
+  return response.data;
+};
+
+export const updateThemePreference = async (theme) => {
+  const response = await api.put('/auth/theme', { theme });
+  return response.data;
+};
+
 export const updateYouthNotifications = async (notificationsEnabled) => {
   const response = await api.put('/youth/profile/notifications', { notificationsEnabled });
   return response.data;

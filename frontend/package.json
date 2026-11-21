@@ -7,11 +7,16 @@
     "dev": "vite",
     "start": "node index.js",
     "build": "vite build && node scripts/generate-seo-assets.js",
+    "build:android": "vite build --mode android && node scripts/generate-seo-assets.js",
+    "cap:sync": "npm run build:android && cap sync android",
+    "cap:open": "cap open android",
     "lint": "eslint .",
     "test:e2e": "playwright test",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
     "axios": "^1.17.0",
     "posthog-js": "^1.393.0",
     "react": "^19.2.6",
@@ -20,6 +25,7 @@
     "socket.io-client": "^4.8.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "@emnapi/core": "^1.11.3",
     "@emnapi/runtime": "^1.11.3",
     "@eslint/js": "^10.0.1",

@@ -136,6 +136,12 @@ test('starting a course call creates an invitation for every enrolled student', 
     assert.ok(emittedInvitations.every((item) => (
       item.payload.actions.includes('join') && item.payload.actions.includes('decline')
     )));
+    assert.ok(emittedInvitations.every((item) => (
+      item.payload.groupName === 'Course title'
+      && item.payload.caller.name === 'Course staff'
+      && item.payload.callType === 'audio'
+      && Date.parse(item.payload.expiresAt) > Date.now()
+    )));
     assert.deepEqual(emittedCallEvents, [{
       room: 'group-chat:111111111111111111111111',
       event: 'course-call:started',

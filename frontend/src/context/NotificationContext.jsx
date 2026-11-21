@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from 'react';
+import { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { getUnreadCount } from '../services/notificationService';
 import api from '../services/api';
@@ -13,7 +13,7 @@ export const NotificationProvider = ({ children }) => {
 	const [callInvitation, setCallInvitation] = useState(null);
 	const [groupChatMessageAlert, setGroupChatMessageAlert] = useState(null);
 
-	const fetchUnreadCount = async () => {
+	const fetchUnreadCount = useCallback(async () => {
 		if (!user) return;
 		try {
 			if (user.role === 'youth') {
@@ -32,7 +32,7 @@ export const NotificationProvider = ({ children }) => {
 		} catch (err) {
 			console.error(err);
 		}
-	};
+	}, [user]);
 
 	useEffect(() => {
 		fetchUnreadCount();
@@ -40,7 +40,7 @@ export const NotificationProvider = ({ children }) => {
 		// Poll every 30 seconds
 		const interval = setInterval(fetchUnreadCount, 30000);
 		return () => clearInterval(interval);
-	}, [user]);
+	}, [fetchUnreadCount]);
 
 	useEffect(() => {
 		if (user?.role !== 'youth' || !token) return undefined;
@@ -50,7 +50,11 @@ export const NotificationProvider = ({ children }) => {
 			withCredentials: true
 		});
 		socket.on('course-call:invitation', (invitation) => {
-			setCallInvitation({ ...invitation, recipientUserId: user.id });
+			setCallInvitation((current) => (
+				current?.callSessionId === invitation.callSessionId
+					? current
+					: { ...invitation, recipientUserId: user.id }
+			));
 			void fetchUnreadCount();
 		});
 		socket.on('course-call:ended', ({ callSessionId }) => {
@@ -67,10 +71,10 @@ export const NotificationProvider = ({ children }) => {
 		});
 
 		return () => socket.disconnect();
-	}, [token, user?.id, user?.role]);
+	}, [fetchUnreadCount, token, user?.id, user?.role]);
 
+	const clearCallInvitation = useCallback(() => setCallInvitation(null), []);
 	const resetUnreadCount = () => setUnreadCount(0);
-	const clearCallInvitation = () => setCallInvitation(null);
 	const clearGroupChatMessageAlert = () => setGroupChatMessageAlert(null);
 
 	return (

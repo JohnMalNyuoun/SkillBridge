@@ -6,6 +6,7 @@ const fs = require('fs');
 const compression = require('compression');
 const http = require('http');
 const { Server } = require('socket.io');
+const { getAllowedOrigins } = require('./config/allowedOrigins');
 
 // Load environment variables BEFORE any module that reads process.env at import time
 // (e.g. ./config/posthog instantiates the PostHog client using POSTHOG_API_KEY).
@@ -21,16 +22,7 @@ const { setupExpressRequestContext, setupExpressErrorHandler } = require('postho
 connectDB();
 
 const app = express();
-const allowedOrigins = [
-  'http://localhost:5000',
-  'http://localhost:5173',
-  'http://localhost:5174',
-  ...(process.env.FRONTEND_URL || '')
-    .split(',')
-    .map((origin) => origin.trim())
-    .map((origin) => origin.replace(/\/+$/, ''))
-    .filter(Boolean)
-];
+const allowedOrigins = getAllowedOrigins();
 
 app.use(cors({
   origin: allowedOrigins,
@@ -46,6 +38,7 @@ setupExpressRequestContext(posthog, app);
 app.use('/api/auth/youth', require('./routes/auth/youthAuth'));
 app.use('/api/auth/org', require('./routes/auth/orgAuth'));
 app.use('/api/auth/verification', require('./routes/auth/verification'));
+app.use('/api/auth/theme', require('./routes/auth/theme'));
 
 // Youth routes
 app.use('/api/youth/profile', require('./routes/youth/profile'));

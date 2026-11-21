@@ -7,6 +7,7 @@ import {
   downloadGroupChatAttachment,
   getChatMemberProfile,
   getCourseGroupChat,
+  searchGroupChatMembers,
   uploadGroupChatAttachment,
   updateGroupChatMembers,
   updateGroupChatModerators
@@ -75,7 +76,14 @@ const CallTypePicker = ({ onStart, onClose, starting }) => (
   </div>
 );
 
-const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = false }) => {
+const CourseGroupDiscussion = ({
+  courseId,
+  isOrgAdmin = false,
+  canStartCall = false,
+  sharedSocket = null,
+  isChatVisible = true,
+  onIncomingMessage
+}) => {
   const { token, user } = useAuth();
   const [chatData, setChatData] = useState(null);
   const [chatMissing, setChatMissing] = useState(false);
@@ -98,17 +106,26 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [memberId, setMemberId] = useState('');
   const [moderatorId, setModeratorId] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [memberSearchResults, setMemberSearchResults] = useState([]);
+  const [memberSearchLoading, setMemberSearchLoading] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const messagesEndRef = useRef(null);
   const socketRef = useRef(null);
+  const chatVisibleRef = useRef(isChatVisible);
+  const onIncomingMessageRef = useRef(onIncomingMessage);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const typingTimersRef = useRef(new Map());
   const callStatusRevisionRef = useRef(0);
   const navigate = useNavigate();
   const currentUserId = String(user?.id || user?._id || '');
+
+  useEffect(() => {
+    chatVisibleRef.current = isChatVisible;
+    onIncomingMessageRef.current = onIncomingMessage;
+  }, [isChatVisible, onIncomingMessage]);
 
   useEffect(() => {
     let active = true;
@@ -142,6 +159,37 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   }, [courseId, reloadKey]);
 
   useEffect(() => {
+    if (
+      !settingsOpen ||
+      !chatData?.canManageMembers ||
+      memberSearch.trim().length < 2
+    ) {
+      return undefined;
+    }
+
+    let active = true;
+    const timeout = window.setTimeout(async () => {
+      setMemberSearchLoading(true);
+      try {
+        const response = await searchGroupChatMembers(courseId, memberSearch.trim());
+        if (active) setMemberSearchResults(response.data?.members || []);
+      } catch (err) {
+        if (active) {
+          setMemberSearchResults([]);
+          setError(err.response?.data?.message || 'Unable to search eligible members.');
+        }
+      } finally {
+        if (active) setMemberSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [courseId, memberSearch, settingsOpen, chatData?.canManageMembers]);
+
+  useEffect(() => {
     let active = true;
     const refreshActiveCall = async () => {
       const requestRevision = callStatusRevisionRef.current;
@@ -173,48 +221,58 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
     const chatId = chatData?.chat?._id;
     if (!chatId || !token) return undefined;
 
-    const socket = io(SOCKET_URL, {
+    const socket = sharedSocket || io(SOCKET_URL, {
       auth: { token },
       withCredentials: true
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => {
+    const handleConnect = () => {
       setConnected(true);
       socket.emit('group-chat:join', { courseId }, (result) => {
         if (result?.error) setError(result.error);
         else setOnlineUserIds(new Set(result?.onlineUserIds || []));
       });
-    });
-    socket.on('disconnect', () => {
+    };
+    const handleDisconnect = () => {
       setConnected(false);
       setOnlineUserIds(new Set());
-    });
-    socket.on('connect_error', (err) => {
+    };
+    const handleConnectError = (err) => {
       setConnected(false);
       setError(err.message || 'Unable to connect to the discussion.');
-    });
-    socket.on('group-chat:message', (incoming) => {
+    };
+    const handleMessage = (incoming) => {
       setMessages((current) => (
         current.some((item) => item._id === incoming._id)
           ? current
           : [...current, incoming]
       ));
-    });
-    socket.on('group-chat:reaction', ({ messageId, reactions }) => {
+      const senderId = String(
+        incoming.sender?._id ||
+        incoming.sender ||
+        incoming.senderOrganisation?._id ||
+        incoming.senderOrganisation ||
+        ''
+      );
+      if (!chatVisibleRef.current && senderId !== currentUserId) {
+        onIncomingMessageRef.current?.();
+      }
+    };
+    const handleReaction = ({ messageId, reactions }) => {
       setMessages((current) => current.map((item) => (
         item._id === messageId ? { ...item, reactions } : item
       )));
-    });
-    socket.on('group-chat:presence', ({ userId, isOnline }) => {
+    };
+    const handlePresence = ({ userId, isOnline }) => {
       setOnlineUserIds((current) => {
         const next = new Set(current);
         if (isOnline) next.add(String(userId));
         else next.delete(String(userId));
         return next;
       });
-    });
-    socket.on('group-chat:typing', ({ userId, fullName, isTyping }) => {
+    };
+    const handleTyping = ({ userId, fullName, isTyping }) => {
       const id = String(userId);
       const timers = typingTimersRef.current;
       if (timers.has(id)) clearTimeout(timers.get(id));
@@ -234,34 +292,65 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
         setTypingUsers((current) => current.filter((entry) => entry.userId !== id));
         timers.delete(id);
       }, 4000));
-    });
-    socket.on('group-chat:access-revoked', () => {
+    };
+    const handleAccessRevoked = () => {
       setError('Your access to this discussion was removed.');
-      socket.disconnect();
-    });
-    socket.on('course-call:started', ({ callSessionId, courseId: startedCourseId, callType }) => {
+      if (sharedSocket) {
+        socket.emit('group-chat:leave', { courseId });
+      } else {
+        socket.disconnect();
+      }
+    };
+    const handleMembersUpdated = () => {
+      setReloadKey((current) => current + 1);
+    };
+    const handleCallStarted = ({ callSessionId, courseId: startedCourseId, callType }) => {
       if (String(startedCourseId) !== String(courseId)) return;
       callStatusRevisionRef.current += 1;
       setActiveCall({ _id: callSessionId, status: 'ongoing', callType });
       setCallStatusError('');
-    });
-    socket.on('course-call:ended', ({ callSessionId, courseId: endedCourseId }) => {
+    };
+    const handleCallEnded = ({ callSessionId, courseId: endedCourseId }) => {
       if (String(endedCourseId) !== String(courseId)) return;
       callStatusRevisionRef.current += 1;
       setActiveCall((current) => (
         current?._id === callSessionId ? null : current
       ));
-    });
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('group-chat:message', handleMessage);
+    socket.on('group-chat:reaction', handleReaction);
+    socket.on('group-chat:presence', handlePresence);
+    socket.on('group-chat:typing', handleTyping);
+    socket.on('group-chat:access-revoked', handleAccessRevoked);
+    socket.on('group-chat:members-updated', handleMembersUpdated);
+    socket.on('course-call:started', handleCallStarted);
+    socket.on('course-call:ended', handleCallEnded);
+    if (socket.connected) handleConnect();
 
     return () => {
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimers.forEach(clearTimeout);
       typingTimers.clear();
       socket.emit('group-chat:leave', { courseId });
-      socket.disconnect();
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('group-chat:message', handleMessage);
+      socket.off('group-chat:reaction', handleReaction);
+      socket.off('group-chat:presence', handlePresence);
+      socket.off('group-chat:typing', handleTyping);
+      socket.off('group-chat:access-revoked', handleAccessRevoked);
+      socket.off('group-chat:members-updated', handleMembersUpdated);
+      socket.off('course-call:started', handleCallStarted);
+      socket.off('course-call:ended', handleCallEnded);
+      if (!sharedSocket) socket.disconnect();
       if (socketRef.current === socket) socketRef.current = null;
     };
-  }, [chatData?.chat?._id, courseId, token]);
+  }, [chatData?.chat?._id, courseId, token, sharedSocket, currentUserId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -319,11 +408,14 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   };
 
   const runMemberAction = async (action, userId) => {
+    if (action === 'remove' && !window.confirm('Remove this member from the group?')) return;
     setError('');
     setNotice('');
     try {
       await updateGroupChatMembers(courseId, { action, userId });
       setNotice(`Discussion member ${action === 'add' ? 'added' : 'removed'}.`);
+      setMemberSearch('');
+      setMemberSearchResults([]);
       setReloadKey((current) => current + 1);
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to update discussion members.');
@@ -331,6 +423,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
   };
 
   const runModeratorAction = async (action, userId) => {
+    if (action === 'remove' && !window.confirm('Remove administrator privileges from this member?')) return;
     setError('');
     setNotice('');
     try {
@@ -515,9 +608,11 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
 
   const moderators = chatData.chat.moderators || [];
   const participants = chatData.chat.participants || [];
-  const memberCount = new Set(
-    [...participants, ...moderators].map((person) => String(person._id))
-  ).size;
+  const moderatorIds = new Set(moderators.map((moderator) => String(moderator._id)));
+  const members = [...new Map(
+    [...participants, ...moderators].map((person) => [String(person._id), person])
+  ).values()];
+  const memberCount = members.length + (chatData.chat.organisation?._id ? 1 : 0);
 
   return (
     <section aria-label={groupChatName} style={{ marginTop: '24px', color: 'var(--text-primary)' }}>
@@ -614,30 +709,31 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
               starting={startingCall}
             />
         )}
-        {(chatData.canManageMembers || chatData.canManageModerators) && (
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            aria-haspopup="dialog"
-            aria-expanded={settingsOpen}
-            aria-label="Group chat settings"
-            title="Group chat settings"
-            style={{
-              border: '1px solid var(--border-color)',
-              borderRadius: '50%',
-              width: '40px',
-              height: '40px',
-              display: 'grid',
-              placeItems: 'center',
-              padding: 0,
-              color: 'var(--text-primary)',
-              background: 'var(--bg-base)',
-              cursor: 'pointer'
-            }}
-          >
-            <SettingsIcon />
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={settingsOpen}
+          aria-label="View group members"
+          title="View group members"
+          style={{
+            border: '1px solid var(--border-color)',
+            borderRadius: '999px',
+            minHeight: '40px',
+            padding: '0 12px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            color: 'var(--text-primary)',
+            background: 'var(--bg-base)',
+            fontWeight: 700,
+            cursor: 'pointer'
+          }}
+        >
+          <SettingsIcon />
+          Members
+        </button>
       </div>
 
       {error && (
@@ -1004,10 +1100,15 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
         </button>
       </form>
 
-      {settingsOpen && (chatData.canManageMembers || chatData.canManageModerators) && (
+      {settingsOpen && (
         <div
           role="presentation"
-          onClick={() => setSettingsOpen(false)}
+          onClick={() => {
+            setSettingsOpen(false);
+            setMemberSearch('');
+            setMemberSearchResults([]);
+            setMemberSearchLoading(false);
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -1027,7 +1128,7 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
               width: 'min(640px, 100%)',
               maxHeight: '85vh',
               overflowY: 'auto',
-              padding: '22px',
+              padding: 'clamp(14px, 4vw, 22px)',
               background: 'var(--bg-card)',
               border: '1px solid var(--border-color)',
               borderRadius: '12px',
@@ -1043,13 +1144,18 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
             }}>
               <div>
                 <h2 id="group-chat-settings-title" style={{ margin: 0, fontSize: '1.1rem' }}>
-                  Group chat settings
+                  Group members
                 </h2>
                 <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
-                  Manage moderators and participants for {groupChatName}.
+                  Members and administrators for {groupChatName}.
                 </p>
               </div>
-              <button type="button" onClick={() => setSettingsOpen(false)}>
+              <button type="button" onClick={() => {
+                setSettingsOpen(false);
+                setMemberSearch('');
+                setMemberSearchResults([]);
+                setMemberSearchLoading(false);
+              }}>
                 Close
               </button>
             </div>
@@ -1083,10 +1189,20 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
                     gap: '8px',
                     padding: '7px 0'
                   }}>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      {moderator.fullName} · {moderator.role}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                      {moderator.photo ? (
+                        <img src={resolveImageUrl(moderator.photo)} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--fb-blue-subtle)', color: 'var(--fb-blue)', fontWeight: 800 }}>
+                          {(moderator.fullName || '?').slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <span style={{ color: 'var(--text-primary)', fontSize: '0.88rem', fontWeight: 700 }}>
+                        {moderator.fullName || 'Member'}
+                        <small style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 500 }}>Admin · {moderator.role}</small>
+                      </span>
                     </span>
-                    <button type="button" onClick={() => runModeratorAction('remove', moderator._id)}>
+                    <button type="button" onClick={() => runModeratorAction('remove', moderator._id)} style={{ color: 'var(--danger-text)', background: 'transparent', fontWeight: 700 }}>
                       Remove
                     </button>
                   </div>
@@ -1119,59 +1235,114 @@ const CourseGroupDiscussion = ({ courseId, isOrgAdmin = false, canStartCall = fa
               </section>
             )}
 
-            {chatData.canManageMembers && (
-              <section style={{ padding: '14px 0', borderTop: '1px solid var(--border-color)' }}>
-                <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem', fontWeight: 800 }}>
-                  Participants
-                </h3>
-                {participants.length === 0 && (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    No participants have joined yet.
-                  </p>
-                )}
-                {participants.map((participant) => (
+            <section style={{ padding: '14px 0', borderTop: '1px solid var(--border-color)' }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: '0.95rem', fontWeight: 800 }}>
+                Members ({memberCount})
+              </h3>
+              {chatData.chat.organisation && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '9px', padding: '8px 0', borderBottom: '1px solid var(--border-color)' }}>
+                  {chatData.chat.organisation.logo ? (
+                    <img src={resolveImageUrl(chatData.chat.organisation.logo)} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <span aria-hidden="true" style={{ width: 36, height: 36, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--fb-blue-subtle)', color: 'var(--fb-blue)', fontWeight: 800 }}>
+                      {(chatData.chat.organisation.name || 'O').slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
+                  <span style={{ color: 'var(--text-primary)', fontSize: '0.88rem', fontWeight: 700 }}>
+                    {chatData.chat.organisation.name || 'Course organisation'}
+                    <small style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 500 }}>Owner</small>
+                  </span>
+                </div>
+              )}
+              {members.length === 0 && (
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  No members have joined yet.
+                </p>
+              )}
+              {members.map((participant) => {
+                const isAdmin = moderatorIds.has(String(participant._id));
+                return (
                   <div key={participant._id} style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    flexWrap: 'wrap',
                     gap: '8px',
-                    padding: '7px 0'
+                    padding: '8px 0',
+                    borderBottom: '1px solid var(--border-color)'
                   }}>
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      {participant.fullName} · {participant.email}
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                      {participant.photo ? (
+                        <img src={resolveImageUrl(participant.photo)} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        <span aria-hidden="true" style={{ width: 36, height: 36, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--fb-blue-subtle)', color: 'var(--fb-blue)', fontWeight: 800 }}>
+                          {(participant.fullName || '?').slice(0, 1).toUpperCase()}
+                        </span>
+                      )}
+                      <span style={{ color: 'var(--text-primary)', fontSize: '0.88rem', fontWeight: 700 }}>
+                        {participant.fullName || 'Member'}
+                        <small style={{ display: 'block', color: 'var(--text-muted)', fontWeight: 500 }}>
+                          {isAdmin ? 'Admin' : 'Member'}{participant.role ? ` · ${participant.role}` : ''}
+                        </small>
+                      </span>
                     </span>
-                    <button type="button" onClick={() => runMemberAction('remove', participant._id)}>
-                      Remove
-                    </button>
+                    {chatData.canManageMembers && (
+                      <button type="button" onClick={() => runMemberAction('remove', participant._id)} style={{ color: 'var(--danger-text)', background: 'transparent', fontWeight: 700 }}>
+                        Remove
+                      </button>
+                    )}
                   </div>
-                ))}
+                );
+              })}
+              {chatData.canManageMembers && (
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                  <select
-                    aria-label="Choose an enrolled student to add"
-                    value={memberId}
-                    onChange={(event) => setMemberId(event.target.value)}
-                    style={{ flex: 1, minWidth: 0, padding: '8px', borderRadius: '8px', border: '1px solid var(--border-color)' }}
-                  >
-                    <option value="">Select enrolled student</option>
-                    {(chatData.availableMembers || []).map((candidate) => (
-                      <option key={candidate._id} value={candidate._id}>
-                        {candidate.fullName} · {candidate.email}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    disabled={!memberId}
-                    onClick={async () => {
-                      await runMemberAction('add', memberId);
-                      setMemberId('');
+                  <label htmlFor="group-member-search" style={{ position: 'absolute', width: '1px', height: '1px', padding: 0, margin: '-1px', overflow: 'hidden', clip: 'rect(0, 0, 0, 0)', whiteSpace: 'nowrap', border: 0 }}>
+                    Search eligible enrolled members
+                  </label>
+                  <input
+                    id="group-member-search"
+                    type="search"
+                    value={memberSearch}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setMemberSearch(nextValue);
+                      if (nextValue.trim().length < 2) {
+                        setMemberSearchResults([]);
+                        setMemberSearchLoading(false);
+                      }
                     }}
-                  >
-                    Add member
-                  </button>
+                    placeholder="Search enrolled members"
+                    maxLength={60}
+                    style={{ flex: 1, minWidth: 0, padding: '9px 10px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+                  />
                 </div>
-              </section>
-            )}
+              )}
+              {chatData.canManageMembers && memberSearch.trim().length >= 2 && (
+                <div aria-live="polite" style={{ display: 'grid', gap: '6px', marginTop: '8px' }}>
+                  {memberSearchLoading && <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem' }}>Searching…</p>}
+                  {!memberSearchLoading && memberSearchResults.length === 0 && (
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.84rem' }}>No eligible enrolled members found.</p>
+                  )}
+                  {memberSearchResults.map((candidate) => (
+                    <div key={candidate._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '7px 0' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0 }}>
+                        {candidate.photo ? (
+                          <img src={resolveImageUrl(candidate.photo)} alt="" style={{ width: 34, height: 34, borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <span aria-hidden="true" style={{ width: 34, height: 34, borderRadius: '50%', display: 'grid', placeItems: 'center', background: 'var(--fb-blue-subtle)', color: 'var(--fb-blue)', fontWeight: 800 }}>
+                            {(candidate.fullName || '?').slice(0, 1).toUpperCase()}
+                          </span>
+                        )}
+                        <span style={{ color: 'var(--text-primary)', fontSize: '0.86rem', fontWeight: 700 }}>{candidate.fullName}</span>
+                      </span>
+                      <button type="button" onClick={() => runMemberAction('add', candidate._id)}>
+                        Add
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
           </section>
         </div>
       )}

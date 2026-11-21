@@ -2,6 +2,33 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      (function () {
+        try {
+          var rawUser = sessionStorage.getItem('user') || localStorage.getItem('user');
+          var user = rawUser ? JSON.parse(rawUser) : null;
+          var theme = null;
+
+          if (user) {
+            var userId = user.id || user._id;
+            var key = userId && user.role
+              ? 'fh_theme_' + user.role + '_' + userId
+              : null;
+            if (key) theme = localStorage.getItem(key) || sessionStorage.getItem(key);
+            if (theme !== 'light' && theme !== 'dark') {
+              theme = user.theme === 'dark' ? 'dark' : 'light';
+            }
+          }
+
+          if (theme !== 'light' && theme !== 'dark') theme = 'light';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch (_) {
+          document.documentElement.setAttribute('data-theme', 'light');
+          document.documentElement.style.colorScheme = 'light';
+        }
+      })();
+    </script>
     <link rel="icon" type="image/jpeg" href="/src/assets/skillbridge%20logo.jpg" />
     <link rel="apple-touch-icon" href="/pwa-icon-192.png" />
     <meta name="apple-mobile-web-app-title" content="SkillBridge" />

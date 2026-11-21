@@ -6,34 +6,9 @@ import {
   declineCallSession,
   getCallSession
 } from '../../services/courseCallService';
+import { resolveImageUrl } from '../../utils/imageUrl';
 
-const playRingtonePulse = (context) => {
-  const startAt = context.currentTime;
-  [0, 0.22].forEach((offset, index) => {
-    const oscillator = context.createOscillator();
-    const gain = context.createGain();
-    const toneStart = startAt + offset;
-    oscillator.type = 'sine';
-    oscillator.frequency.value = index === 0 ? 440 : 480;
-    gain.gain.setValueAtTime(0.0001, toneStart);
-    gain.gain.exponentialRampToValueAtTime(0.12, toneStart + 0.04);
-    gain.gain.setValueAtTime(0.12, toneStart + 0.25);
-    gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + 0.42);
-    oscillator.connect(gain);
-    gain.connect(context.destination);
-    oscillator.start(toneStart);
-    oscillator.stop(toneStart + 0.43);
-  });
-};
-
-const startRingtoneLoop = (context, intervalRef) => {
-  if (intervalRef.current !== null) return;
-  const play = () => {
-    if (context.state === 'running') playRingtonePulse(context);
-  };
-  play();
-  intervalRef.current = window.setInterval(play, 2100);
-};
+const INVITATION_TTL_MS = 60 * 1000;
 
 const CourseCallInvitationToast = () => {
   const navigate = useNavigate();
@@ -44,99 +19,23 @@ const CourseCallInvitationToast = () => {
   } = useNotifications();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [ringtoneNeedsGesture, setRingtoneNeedsGesture] = useState(false);
-  const [ringtoneUnavailable, setRingtoneUnavailable] = useState(false);
-  const audioContextRef = useRef(null);
-  const ringtoneIntervalRef = useRef(null);
+  const [notificationPermission, setNotificationPermission] = useState(() => (
+    typeof window !== 'undefined' && 'Notification' in window
+      ? Notification.permission
+      : 'unsupported'
+  ));
+  const notificationRef = useRef(null);
+  const [failedPhoto, setFailedPhoto] = useState('');
+  const groupName = callInvitation?.groupName || 'Course group';
+  const callerName = callInvitation?.caller?.name || 'A group member';
+  const callType = callInvitation?.callType === 'audio' ? 'voice' : 'video';
+  const callerPhoto = callInvitation?.caller?.photo
+    ? resolveImageUrl(callInvitation.caller.photo)
+    : '';
 
-  useEffect(() => {
-    const primeRingtone = () => {
-      window.removeEventListener('pointerdown', primeRingtone);
-      window.removeEventListener('keydown', primeRingtone);
-      const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextConstructor) return;
+  const handleJoin = useCallback(async () => {
+    if (!callInvitation?.callSessionId) return;
 
-      try {
-        let context = audioContextRef.current;
-        if (!context || context.state === 'closed') {
-          context = new AudioContextConstructor();
-          audioContextRef.current = context;
-        }
-        if (context.state !== 'running') {
-          void context.resume().catch((err) => {
-            console.error('Unable to prepare course call audio.', err);
-          });
-        }
-      } catch (err) {
-        console.error('Unable to prepare course call audio.', err);
-      }
-    };
-
-    window.addEventListener('pointerdown', primeRingtone, { once: true });
-    window.addEventListener('keydown', primeRingtone, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', primeRingtone);
-      window.removeEventListener('keydown', primeRingtone);
-    };
-  }, []);
-
-  useEffect(() => () => {
-    const context = audioContextRef.current;
-    audioContextRef.current = null;
-    if (context && context.state !== 'closed') {
-      void context.close().catch((err) => {
-        console.error('Unable to release course call audio.', err);
-      });
-    }
-  }, []);
-
-  const resumeRingtone = useCallback(async () => {
-    const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextConstructor) {
-      setRingtoneUnavailable(true);
-      return;
-    }
-
-    let context = audioContextRef.current;
-    if (!context || context.state === 'closed') {
-      context = new AudioContextConstructor();
-      audioContextRef.current = context;
-    }
-
-    if (context.state !== 'running') setRingtoneNeedsGesture(true);
-    try {
-      if (context.state !== 'running') await context.resume();
-      if (context.state !== 'running') {
-        setRingtoneNeedsGesture(true);
-        return;
-      }
-      setRingtoneNeedsGesture(false);
-      setRingtoneUnavailable(false);
-      startRingtoneLoop(context, ringtoneIntervalRef);
-    } catch {
-      setRingtoneNeedsGesture(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!callInvitation?.callSessionId) return undefined;
-
-    let active = true;
-    void Promise.resolve().then(() => {
-      if (active) void resumeRingtone();
-    });
-    return () => {
-      active = false;
-      if (ringtoneIntervalRef.current !== null) {
-        window.clearInterval(ringtoneIntervalRef.current);
-        ringtoneIntervalRef.current = null;
-      }
-    };
-  }, [callInvitation?.callSessionId, resumeRingtone]);
-
-  if (!callInvitation) return null;
-
-  const handleJoin = async () => {
     setBusy(true);
     setError('');
     try {
@@ -147,7 +46,9 @@ const CourseCallInvitationToast = () => {
       clearCallInvitation();
       const { callSession, course } = response.data;
       if (callSession.status === 'ongoing') {
-        navigate(`/calls/${callSession._id}`);
+        navigate(`/calls/${callSession._id}`, {
+          state: { initialMode: callSession.callType }
+        });
       } else {
         navigate(`/courses/${course._id || callInvitation.courseId}/discussion`);
       }
@@ -157,9 +58,16 @@ const CourseCallInvitationToast = () => {
     } finally {
       setBusy(false);
     }
-  };
+  }, [
+    callInvitation,
+    clearCallInvitation,
+    fetchUnreadCount,
+    navigate
+  ]);
 
-  const handleDecline = async () => {
+  const handleDecline = useCallback(async () => {
+    if (!callInvitation?.callSessionId) return;
+
     setBusy(true);
     setError('');
     try {
@@ -171,12 +79,101 @@ const CourseCallInvitationToast = () => {
     } finally {
       setBusy(false);
     }
+  }, [callInvitation, clearCallInvitation, fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!callInvitation?.callSessionId) return undefined;
+
+    let notification = null;
+    const expiresAt = Date.parse(callInvitation.expiresAt);
+    const expiryTime = Number.isFinite(expiresAt)
+      ? expiresAt
+      : Date.now() + INVITATION_TTL_MS;
+    const remainingMs = Math.max(0, expiryTime - Date.now());
+    const vibrate = () => {
+      if (typeof navigator.vibrate === 'function') {
+        navigator.vibrate([450, 250, 450]);
+      }
+    };
+    const showBrowserNotification = () => {
+      if (
+        !document.hidden
+        || !('Notification' in window)
+        || Notification.permission !== 'granted'
+        || notification
+      ) return;
+
+      try {
+        notification = new Notification(`Incoming ${callType} call`, {
+          body: `${callerName} is calling in ${groupName}.`,
+          tag: `course-call-${callInvitation.callSessionId}`,
+          requireInteraction: true,
+          vibrate: [450, 250, 450]
+        });
+        notificationRef.current = notification;
+        notification.onclick = () => {
+          window.focus();
+          void handleJoin();
+        };
+        notification.onerror = (event) => {
+          console.error('Unable to show the course call notification:', event);
+          setError('Browser call notification could not be displayed.');
+        };
+      } catch (err) {
+        console.error('Unable to show the course call notification:', err);
+        setError('Browser call notification could not be displayed.');
+      }
+    };
+
+    vibrate();
+    const vibrationInterval = window.setInterval(vibrate, 3200);
+    const expiryTimer = window.setTimeout(() => {
+      clearCallInvitation();
+      if (callInvitation.notificationId) {
+        void markAsRead(callInvitation.notificationId)
+          .then(() => fetchUnreadCount())
+          .catch((err) => {
+            console.error('Unable to mark the expired call invitation as read:', err);
+          });
+      }
+    }, remainingMs);
+    document.addEventListener('visibilitychange', showBrowserNotification);
+    showBrowserNotification();
+
+    return () => {
+      window.clearInterval(vibrationInterval);
+      window.clearTimeout(expiryTimer);
+      document.removeEventListener('visibilitychange', showBrowserNotification);
+      if (typeof navigator.vibrate === 'function') navigator.vibrate(0);
+      if (notification) notification.close();
+      if (notificationRef.current === notification) notificationRef.current = null;
+    };
+  }, [
+    callInvitation,
+    callType,
+    callerName,
+    clearCallInvitation,
+    fetchUnreadCount,
+    groupName,
+    handleJoin
+  ]);
+
+  if (!callInvitation) return null;
+
+  const enableBrowserNotifications = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+    } catch (err) {
+      console.error('Unable to request browser notification permission:', err);
+      setError('Browser notifications could not be enabled.');
+    }
   };
 
   return (
     <aside
       role="alert"
-      aria-label="Incoming course call"
+      aria-label="Incoming group call"
       style={{
         position: 'fixed',
         top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
@@ -188,31 +185,65 @@ const CourseCallInvitationToast = () => {
         border: '1px solid var(--border-color)',
         borderRadius: '12px',
         background: 'var(--bg-card)',
+        color: 'var(--text-primary)',
         boxShadow: 'var(--card-shadow)'
       }}
     >
-      <strong style={{ color: 'var(--text-primary)' }}>{callInvitation.title || 'Course group call'}</strong>
-      <p style={{ margin: '6px 0 12px', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
-        {callInvitation.message || 'You have been invited to join a course call.'}
-      </p>
-      {ringtoneNeedsGesture && (
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {callerPhoto && failedPhoto !== callerPhoto ? (
+          <img
+            src={callerPhoto}
+            alt=""
+            onError={() => setFailedPhoto(callerPhoto)}
+            style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover' }}
+          />
+        ) : (
+          <div
+            aria-hidden="true"
+            style={{
+              width: '48px',
+              height: '48px',
+              flex: '0 0 48px',
+              display: 'grid',
+              placeItems: 'center',
+              borderRadius: '50%',
+              background: 'var(--bg-section-alt)',
+              color: 'var(--text-primary)',
+              fontWeight: 700
+            }}
+          >
+            {callerName.trim().charAt(0).toUpperCase() || 'S'}
+          </div>
+        )}
+        <div>
+          <strong>{groupName}</strong>
+          <p style={{ margin: '4px 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            {callerName} is starting a {callType} call
+          </p>
+        </div>
+      </div>
+      {notificationPermission === 'default' && (
         <button
           type="button"
-          onClick={() => void resumeRingtone()}
-          style={{ marginBottom: '10px' }}
+          onClick={enableBrowserNotifications}
+          style={{ marginTop: '12px', background: 'transparent', color: 'var(--text-secondary)' }}
         >
-          Enable ringtone
+          Enable browser call alerts
         </button>
       )}
-      {ringtoneUnavailable && (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '10px' }}>
-          Ringtone audio is not supported by this browser.
+      {notificationPermission === 'denied' && (
+        <p style={{ margin: '10px 0 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+          Browser notifications are blocked. You can still answer while SkillBridge is open.
         </p>
       )}
-      {error && <p role="alert" style={{ color: 'var(--danger-text)', fontSize: '0.82rem', marginBottom: '10px' }}>{error}</p>}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      {error && (
+        <p role="alert" style={{ color: 'var(--danger-text)', fontSize: '0.82rem', margin: '10px 0 0' }}>
+          {error}
+        </p>
+      )}
+      <div style={{ display: 'flex', gap: '8px', marginTop: '14px' }}>
         <button type="button" onClick={handleJoin} disabled={busy}>
-          Join
+          Accept
         </button>
         <button type="button" onClick={handleDecline} disabled={busy}>
           Decline

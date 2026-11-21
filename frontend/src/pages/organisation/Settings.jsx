@@ -7,7 +7,9 @@ import {
   changeOrgPassword,
   getOrgProfile,
   requestOrgPasswordChangeCode,
-  updateOrgLanguage
+  updateOrgLanguage,
+  getThemePreference,
+  updateThemePreference
 } from '../../services/profileService';
 import { useLanguage } from '../../hooks/useLanguage';
 import { getUserTheme, saveUserTheme } from '../../utils/themePreference';
@@ -16,7 +18,7 @@ const SETTINGS_KEY = 'fh_settings_org_tab';
 
 const OrgSettings = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,7 +61,7 @@ const OrgSettings = () => {
 
   useEffect(() => {
     sessionStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    document.documentElement.setAttribute('data-theme', settings.theme);
+    saveUserTheme(user, settings.theme);
   }, [settings]);
 
   useEffect(() => {
@@ -70,6 +72,17 @@ const OrgSettings = () => {
         if (res.data?.language) {
           setSettings((current) => ({ ...current, language: res.data.language }));
           setLanguage(res.data.language);
+        }
+        try {
+          const themeResponse = await getThemePreference();
+          const serverTheme = themeResponse?.data?.theme;
+          if (serverTheme === 'light' || serverTheme === 'dark') {
+            setSettings((current) => ({ ...current, theme: serverTheme }));
+            saveUserTheme(user, serverTheme);
+            updateUser({ theme: serverTheme });
+          }
+        } catch {
+          // Keep the locally restored preference if server sync is unavailable.
         }
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load settings');
@@ -91,11 +104,17 @@ const OrgSettings = () => {
     }));
   };
 
-  const toggleTheme = () => {
+  const toggleTheme = async () => {
     const nextTheme = settings.theme === 'dark' ? 'light' : 'dark';
-    saveUserTheme(user, nextTheme);
-    setSettings((current) => ({ ...current, theme: nextTheme }));
-    setNotice('Theme updated.');
+    try {
+      await updateThemePreference(nextTheme);
+      saveUserTheme(user, nextTheme);
+      updateUser({ theme: nextTheme });
+      setSettings((current) => ({ ...current, theme: nextTheme }));
+      setNotice('Theme updated.');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update theme');
+    }
   };
 
   const handleLogout = () => {

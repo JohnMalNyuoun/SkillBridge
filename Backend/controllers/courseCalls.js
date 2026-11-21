@@ -14,6 +14,8 @@ const {
   findAccessibleCall
 } = require('../services/courseCallAccess');
 
+const INVITATION_TTL_MS = 60 * 1000;
+
 const getEnrolledStudentIds = async (course) => {
   const applications = await Application.find({
     course: course._id,
@@ -128,6 +130,7 @@ const startCourseCall = async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
+      const invitationExpiresAt = new Date(Date.now() + INVITATION_TTL_MS).toISOString();
       io.to(`group-chat:${idString(groupChat._id)}`).emit('course-call:started', {
         callSessionId: idString(callSession._id),
         courseId: idString(course._id),
@@ -139,8 +142,14 @@ const startCourseCall = async (req, res) => {
           notificationId: idString(notification._id),
           callSessionId: idString(callSession._id),
           courseId: idString(course._id),
+          groupName: course.title,
           roomId: callSession.roomId,
           callType: callSession.callType,
+          caller: {
+            name: actor.fullName || 'SkillBridge member',
+            photo: actor.photo || null
+          },
+          expiresAt: invitationExpiresAt,
           title: notification.title,
           message: notification.message,
           actions: ['join', 'decline']

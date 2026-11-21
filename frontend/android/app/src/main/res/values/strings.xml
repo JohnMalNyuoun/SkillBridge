@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SkillBridge</string>
+    <string name="title_activity_main">SkillBridge</string>
+    <string name="package_name">org.skillbridgeafrica.app</string>
+    <string name="custom_url_scheme">org.skillbridgeafrica.app</string>
+</resources>

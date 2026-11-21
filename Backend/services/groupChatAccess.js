@@ -7,10 +7,16 @@ const isChatAdministrator = (chat, actor) => (
   (actor.role === 'organisation' && idString(actor.id) === idString(chat.organisation))
 );
 
+const isRemovedFromChat = (chat, actorId) => (
+  includesId(chat.removedParticipants || [], actorId)
+);
+
 const canAccessChat = (chat, actor) => (
-  isChatAdministrator(chat, actor) ||
-  includesId(chat.participants, actor.id) ||
-  includesId(chat.moderators, actor.id)
+  !isRemovedFromChat(chat, actor.id) && (
+    isChatAdministrator(chat, actor) ||
+    includesId(chat.participants, actor.id) ||
+    includesId(chat.moderators, actor.id)
+  )
 );
 
 const canManageChatMembers = (chat, actor) => (
@@ -18,10 +24,16 @@ const canManageChatMembers = (chat, actor) => (
   includesId(chat.moderators, actor.id)
 );
 
+const canManageChatModerators = (chat, actor) => (
+  isChatAdministrator(chat, actor)
+);
+
 module.exports = {
   idString,
   includesId,
   isChatAdministrator,
   canAccessChat,
-  canManageChatMembers
+  canManageChatMembers,
+  canManageChatModerators,
+  isRemovedFromChat
 };

@@ -47,7 +47,7 @@ Configure the providers before enabling deployments:
 1. Create a Render web service using the repository root (leave **Root Directory** blank). Set **Build Command** to `npm ci --prefix Backend --omit=dev && npm ci --prefix frontend --include=dev && npm --prefix frontend run build` and **Start Command** to `npm --prefix Backend start`. This builds `frontend/dist`, which the Express server serves alongside the API.
 2. Create a Vercel project connected to this GitHub repository with `frontend` as its root directory. Set the production environment variable `VITE_API_URL` to the Render host (for example, `https://your-service.onrender.com`). The frontend appends `/api` automatically.
    Set `VITE_SITE_URL` to the exact public production origin (for example, `https://skillbridge.example.org`, with no path). The frontend uses it for canonical and social URLs and generates `sitemap.xml`; without it, the sitemap is intentionally omitted rather than publishing incorrect URLs.
-3. Set the Render service environment variable `FRONTEND_URL` to the exact Vercel origin(s), with no path (for example, `https://your-project.vercel.app`). Multiple comma-separated origins are supported. Add each Vercel preview origin separately if you need preview deployments to call the API.
+3. Set the Render service environment variable `FRONTEND_URL` to the single public website origin, `https://skillbridge-tu5k.onrender.com`. The backend always allows this site, Capacitor's `https://localhost`, and existing local development origins. If additional website or preview origins need API access, set `CORS_ALLOWED_ORIGINS` to their exact comma-separated origins, for example `https://your-project.vercel.app,https://preview.example.com`. Keep `FRONTEND_URL` as a single origin because it is also used to generate email verification links. Express and Socket.IO use the same allowlist; do not use `*` with credentials.
 4. In the Vercel project, open **Settings → Git → Deploy Hooks**, create a hook for the `main` branch, and copy its URL.
 5. Add these GitHub repository secrets under **Settings → Secrets and variables → Actions**:
    - `RENDER_DEPLOY_HOOK_URL`
@@ -78,7 +78,9 @@ JWT_SECRET=use_a_long_random_secret
 
 RESEND_API_KEY=re_your_resend_api_key
 RESEND_FROM_EMAIL=SkillBridge <no-reply@your-verified-domain.com>
-FRONTEND_URL=https://your-frontend-domain.vercel.app
+FRONTEND_URL=https://skillbridge-tu5k.onrender.com
+# Optional; only set this when separate website origins also need API access.
+CORS_ALLOWED_ORIGINS=https://your-project.vercel.app,https://preview.example.com
 
 Verify your sending domain with Resend, then configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in the Render service environment. The sender must use that verified domain.
 

@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import Navbar from '../../components/common/Navbar';
 import Loader from '../../components/common/Loader';
+import CourseGroupDiscussion from '../../components/common/CourseGroupDiscussion';
 import useAuth from '../../hooks/useAuth';
 import { endCallSession, getCallSession } from '../../services/courseCallService';
 import { SOCKET_URL } from '../../utils/constants';
@@ -153,6 +154,9 @@ const CourseCall = () => {
   const [remoteStreams, setRemoteStreams] = useState({});
   const [participants, setParticipants] = useState([]);
   const [connected, setConnected] = useState(false);
+  const [callSocket, setCallSocket] = useState(null);
+  const [activePanel, setActivePanel] = useState('call');
+  const [unreadChatMessages, setUnreadChatMessages] = useState(0);
   const [muted, setMuted] = useState(false);
   const [cameraOff, setCameraOff] = useState(false);
   const [callMode, setCallMode] = useState(() => (
@@ -310,6 +314,7 @@ const CourseCall = () => {
 
         socket = io(SOCKET_URL, { auth: { token }, withCredentials: true });
         socketRef.current = socket;
+        setCallSocket(socket);
         socket.on('connect', () => {
           const localHasVideo = mediaStream.getVideoTracks().some((track) => (
             track.readyState === 'live' && track.enabled
@@ -475,6 +480,11 @@ const CourseCall = () => {
     }
   };
 
+  const showChat = () => {
+    setActivePanel('chat');
+    setUnreadChatMessages(0);
+  };
+
   if (loading) return <Loader />;
 
   if (
@@ -512,7 +522,7 @@ const CourseCall = () => {
   return (
     <div className="fh-page">
       <Navbar />
-      <main className="fh-container" style={{ maxWidth: '1100px' }}>
+      <main className={`fh-container fh-call-layout${activePanel === 'chat' ? ' fh-call-chat-active' : ''}`} style={{ maxWidth: '1320px' }}>
         <header style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -534,78 +544,110 @@ const CourseCall = () => {
           </button>
         </header>
 
+        <nav className="fh-call-panel-switch" aria-label="Call and chat">
+          <button
+            type="button"
+            className={activePanel === 'call' ? 'active' : ''}
+            aria-pressed={activePanel === 'call'}
+            onClick={() => setActivePanel('call')}
+          >
+            Call
+          </button>
+          <button
+            type="button"
+            className={activePanel === 'chat' ? 'active' : ''}
+            aria-pressed={activePanel === 'chat'}
+            onClick={showChat}
+          >
+            Chat{unreadChatMessages > 0 ? ` (${unreadChatMessages})` : ''}
+          </button>
+        </nav>
+
         {error && (
           <p role="alert" style={{ color: 'var(--danger-text)', padding: '10px 0' }}>
             {error}
           </p>
         )}
 
-        <section style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '12px'
-        }}>
-          <div style={{
-            position: 'relative',
-            minHeight: '220px',
-            aspectRatio: '16 / 9',
-            background: '#111827',
-            borderRadius: '12px',
-            overflow: 'hidden'
+        <div className="fh-call-workspace">
+          <section className="fh-call-stage" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '12px',
+            alignContent: 'start'
           }}>
-            {callMode === 'video' && !cameraOff ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                muted
-                playsInline
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-              />
-            ) : (
-              <div style={{
-                display: 'grid',
-                placeItems: 'center',
-                position: 'absolute',
-                inset: 0
-              }}>
-                <ParticipantAvatar
-                  name={user?.fullName || 'You'}
-                  photo={user?.photo}
-                />
-              </div>
-            )}
-            <span style={{
-              position: 'absolute',
-              left: '12px',
-              bottom: '10px',
-              color: '#fff',
-              background: 'rgba(0,0,0,0.55)',
-              borderRadius: '6px',
-              padding: '4px 8px',
-              fontSize: '0.82rem'
+            <div style={{
+              position: 'relative',
+              minHeight: '220px',
+              aspectRatio: '16 / 9',
+              background: '#111827',
+              borderRadius: '12px',
+              overflow: 'hidden'
             }}>
-              You
-            </span>
-          </div>
-          {Object.entries(remoteStreams).map(([socketId, stream]) => {
-            const participant = participants.find((item) => item.socketId === socketId);
-            return (
-              <RemoteVideo
-                key={socketId}
-                stream={stream}
-                name={participant?.fullName}
-                photo={participant?.photo}
-                hasVideo={participant?.hasVideo}
+              {callMode === 'video' && !cameraOff ? (
+                <video
+                  ref={localVideoRef}
+                  autoPlay
+                  muted
+                  playsInline
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              ) : (
+                <div style={{
+                  display: 'grid',
+                  placeItems: 'center',
+                  position: 'absolute',
+                  inset: 0
+                }}>
+                  <ParticipantAvatar
+                    name={user?.fullName || 'You'}
+                    photo={user?.photo}
+                  />
+                </div>
+              )}
+              <span style={{
+                position: 'absolute',
+                left: '12px',
+                bottom: '10px',
+                color: '#fff',
+                background: 'rgba(0,0,0,0.55)',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                fontSize: '0.82rem'
+              }}>
+                You
+              </span>
+            </div>
+            {Object.entries(remoteStreams).map(([socketId, stream]) => {
+              const participant = participants.find((item) => item.socketId === socketId);
+              return (
+                <RemoteVideo
+                  key={socketId}
+                  stream={stream}
+                  name={participant?.fullName}
+                  photo={participant?.photo}
+                  hasVideo={participant?.hasVideo}
+                />
+              );
+            })}
+          </section>
+          {callData?.course?._id && (
+            <aside className="fh-call-chat" aria-label="Call conversation">
+              <CourseGroupDiscussion
+                courseId={callData.course._id}
+                sharedSocket={callSocket}
+                isChatVisible={activePanel === 'chat'}
+                onIncomingMessage={() => setUnreadChatMessages((count) => count + 1)}
               />
-            );
-          })}
-        </section>
+            </aside>
+          )}
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', padding: '20px 0' }}>
           <button type="button" onClick={toggleMicrophone} disabled={!localStream}>

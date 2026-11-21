@@ -22,7 +22,7 @@ const getStoredUser = () => {
 };
 
 const storedUser = getStoredUser();
-document.documentElement.setAttribute('data-theme', getUserTheme(storedUser));
+document.documentElement.setAttribute('data-theme', getUserTheme(storedUser, storedUser?.theme));
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
