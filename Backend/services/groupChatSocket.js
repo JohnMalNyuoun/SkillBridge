@@ -11,7 +11,8 @@ const { getAttachment } = require('./groupChatAttachmentService');
 const { canAccessChat, idString } = require('./groupChatAccess');
 const {
   loadCallActor,
-  getCourseCallContext
+  getCourseCallContext,
+  canJoinCallSession
 } = require('./courseCallAccess');
 
 const respond = (ack, result) => {
@@ -405,6 +406,9 @@ const registerGroupChatSocket = (io) => {
         const context = actor ? await getCourseCallContext(session, actor) : null;
         if (!context?.course || !context.canAccess) {
           return respond(ack, { error: 'You are not enrolled in this course call.' });
+        }
+        if (!canJoinCallSession(session, actor)) {
+          return respond(ack, { error: 'Accept the call invitation before joining.' });
         }
 
         const room = `course-call:${session.roomId}`;

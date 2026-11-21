@@ -1,13 +1,20 @@
-const sanitizeHeaders = (headers = {}) => {
-  const copied = { ...headers };
-  if (copied.authorization) {
-    copied.authorization = '[redacted]';
+const SENSITIVE_FIELD = /(authorization|cookie|password|token|secret|credential|api[-_]?key)/i;
+
+const sanitizeSensitiveFields = (value) => {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeSensitiveFields);
   }
-  if (copied.cookie) {
-    copied.cookie = '[redacted]';
+  if (!value || typeof value !== 'object') {
+    return value;
   }
-  return copied;
+
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    key,
+    SENSITIVE_FIELD.test(key) ? '[redacted]' : sanitizeSensitiveFields(item)
+  ]));
 };
+
+const sanitizeHeaders = (headers = {}) => sanitizeSensitiveFields(headers);
 
 const truncate = (value, maxLength = 1500) => {
   if (value == null) return value;
@@ -54,11 +61,13 @@ const requestLogger = (req, res, next) => {
     const requestInfo = {
       time: startedAt,
       method: req.method,
-      url: req.originalUrl,
+      url: req.path,
       ip: req.ip || req.socket?.remoteAddress || 'unknown',
-      query: req.query || {},
+      query: sanitizeSensitiveFields(req.query || {}),
       headers: sanitizeHeaders(req.headers),
-      body: req.body || {}
+      body: req.path.startsWith('/api/auth/')
+        ? '[redacted authentication payload]'
+        : sanitizeSensitiveFields(req.body || {})
     };
 
     console.log('REQUEST START');
@@ -89,3 +98,4 @@ const requestLogger = (req, res, next) => {
 };
 
 module.exports = requestLogger;
+module.exports.sanitizeSensitiveFields = sanitizeSensitiveFields;

@@ -1,7 +1,10 @@
 const bcrypt = require('bcryptjs');
 const Organisation = require('../../models/Organisation');
 const User = require('../../models/Users');
-const generateToken = require('../../utils/generateToken');
+const {
+  AuthSessionConfigurationError,
+  issueAuthTokens
+} = require('../../services/authSessionService');
 const { success, error } = require('../../utils/apiResponse');
 const { notify } = require('../../services/notificationService');
 const posthog = require('../../config/posthog');
@@ -125,7 +128,7 @@ const loginOrg = async (req, res) => {
     }
 
     // Generate token
-    const token = generateToken(org._id, org.role);
+    const tokens = await issueAuthTokens(org, 'Organisation', req);
 
     posthog.identify({
       distinctId: org._id.toString(),
@@ -146,7 +149,7 @@ const loginOrg = async (req, res) => {
     });
 
     return success(res, 200, 'Login successful', {
-      token,
+      ...tokens,
       organisation: {
         id: org._id,
         name: org.name,
@@ -158,6 +161,10 @@ const loginOrg = async (req, res) => {
     });
 
   } catch (err) {
+    if (err instanceof AuthSessionConfigurationError) {
+      console.error('Refresh session configuration is incomplete:', err.message);
+      return error(res, 503, 'Secure sign-in is temporarily unavailable');
+    }
     return error(res, 500, err.message);
   }
 };

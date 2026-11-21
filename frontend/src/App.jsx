@@ -57,8 +57,8 @@ import PublicOrganisationProfile from './pages/common/PublicOrganisationProfile'
 import Seo from './components/common/Seo';
 import CourseCallInvitationToast from './components/common/CourseCallInvitationToast';
 import GroupChatMessageToast from './components/common/GroupChatMessageToast';
-import PwaUpdatePrompt from './components/common/PwaUpdatePrompt';
-import PwaFirstLoginPrompt from './components/common/PwaFirstLoginPrompt';
+import PwaServiceWorkerRegistration from './components/common/PwaServiceWorkerRegistration';
+import AndroidUpdateNotice from './components/common/AndroidUpdateNotice';
 // Route guards 
 const AuthRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -102,8 +102,8 @@ function App () {
       <Seo />
       <CourseCallInvitationToast />
       <GroupChatMessageToast />
-      <PwaUpdatePrompt />
-      <PwaFirstLoginPrompt />
+      <PwaServiceWorkerRegistration />
+      <AndroidUpdateNotice />
       <Routes key={routeRefreshKey}>
         {/* Public */}
 

@@ -3,28 +3,34 @@ import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../context/NotificationContext';
 import { markAsRead } from '../../services/notificationService';
 import {
-  declineCallSession,
-  getCallSession
+  acceptCallSession,
+  declineCallSession
 } from '../../services/courseCallService';
+import { isNativeAndroid } from '../../services/nativeAuthSession';
+import useAuth from '../../hooks/useAuth';
 import { resolveImageUrl } from '../../utils/imageUrl';
 
 const INVITATION_TTL_MS = 60 * 1000;
 
 const CourseCallInvitationToast = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const {
     callInvitation,
     clearCallInvitation,
-    fetchUnreadCount
+    fetchUnreadCount,
+    nativeCallAction,
+    clearNativeCallAction
   } = useNotifications();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notificationPermission, setNotificationPermission] = useState(() => (
-    typeof window !== 'undefined' && 'Notification' in window
+    !isNativeAndroid() && typeof window !== 'undefined' && 'Notification' in window
       ? Notification.permission
       : 'unsupported'
   ));
   const notificationRef = useRef(null);
+  const handledNativeActionRef = useRef('');
   const [failedPhoto, setFailedPhoto] = useState('');
   const groupName = callInvitation?.groupName || 'Course group';
   const callerName = callInvitation?.caller?.name || 'A group member';
@@ -39,10 +45,7 @@ const CourseCallInvitationToast = () => {
     setBusy(true);
     setError('');
     try {
-      const response = await getCallSession(callInvitation.callSessionId);
-      if (callInvitation.notificationId) {
-        await markAsRead(callInvitation.notificationId);
-      }
+      const response = await acceptCallSession(callInvitation.callSessionId);
       clearCallInvitation();
       const { callSession, course } = response.data;
       if (callSession.status === 'ongoing') {
@@ -82,6 +85,47 @@ const CourseCallInvitationToast = () => {
   }, [callInvitation, clearCallInvitation, fetchUnreadCount]);
 
   useEffect(() => {
+    if (
+      !nativeCallAction?.callSessionId
+      || !['answer', 'decline'].includes(nativeCallAction.action)
+    ) return;
+    const actionId = `${nativeCallAction.action}:${nativeCallAction.callSessionId}`;
+    if (handledNativeActionRef.current === actionId) return;
+    handledNativeActionRef.current = actionId;
+
+    const handleAction = async () => {
+      setError('');
+      try {
+        if (nativeCallAction.action === 'decline') {
+          await declineCallSession(nativeCallAction.callSessionId);
+          clearCallInvitation();
+          return;
+        }
+
+        const response = await acceptCallSession(nativeCallAction.callSessionId);
+        const { callSession } = response.data;
+        clearCallInvitation();
+        navigate(`/calls/${callSession._id}`, {
+          state: { initialMode: callSession.callType }
+        });
+      } catch (err) {
+        setError(err.response?.data?.message || 'Unable to respond to the call invitation.');
+      } finally {
+        clearNativeCallAction();
+        void fetchUnreadCount();
+      }
+    };
+
+    void handleAction();
+  }, [
+    clearCallInvitation,
+    clearNativeCallAction,
+    fetchUnreadCount,
+    navigate,
+    nativeCallAction
+  ]);
+
+  useEffect(() => {
     if (!callInvitation?.callSessionId) return undefined;
 
     let notification = null;
@@ -91,12 +135,15 @@ const CourseCallInvitationToast = () => {
       : Date.now() + INVITATION_TTL_MS;
     const remainingMs = Math.max(0, expiryTime - Date.now());
     const vibrate = () => {
+      if (isNativeAndroid()) return;
       if (typeof navigator.vibrate === 'function') {
         navigator.vibrate([450, 250, 450]);
       }
     };
     const showBrowserNotification = () => {
       if (
+        isNativeAndroid()
+        ||
         !document.hidden
         || !('Notification' in window)
         || Notification.permission !== 'granted'
@@ -129,7 +176,7 @@ const CourseCallInvitationToast = () => {
     const vibrationInterval = window.setInterval(vibrate, 3200);
     const expiryTimer = window.setTimeout(() => {
       clearCallInvitation();
-      if (callInvitation.notificationId) {
+      if (user?.role === 'youth' && callInvitation.notificationId) {
         void markAsRead(callInvitation.notificationId)
           .then(() => fetchUnreadCount())
           .catch((err) => {
@@ -155,10 +202,37 @@ const CourseCallInvitationToast = () => {
     clearCallInvitation,
     fetchUnreadCount,
     groupName,
-    handleJoin
+    handleJoin,
+    user?.role
   ]);
 
-  if (!callInvitation) return null;
+  if (!callInvitation) {
+    if (!error) return null;
+    return (
+      <aside
+        role="alert"
+        style={{
+          position: 'fixed',
+          top: 'calc(env(safe-area-inset-top, 0px) + 10px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1400,
+          width: 'min(440px, calc(100vw - 20px))',
+          padding: '16px',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          background: 'var(--bg-card)',
+          color: 'var(--text-primary)',
+          boxShadow: 'var(--card-shadow)'
+        }}
+      >
+        {error}
+        <button type="button" onClick={() => setError('')} style={{ marginLeft: '12px' }}>
+          Dismiss
+        </button>
+      </aside>
+    );
+  }
 
   const enableBrowserNotifications = async () => {
     try {
@@ -222,7 +296,7 @@ const CourseCallInvitationToast = () => {
           </p>
         </div>
       </div>
-      {notificationPermission === 'default' && (
+      {!isNativeAndroid() && notificationPermission === 'default' && (
         <button
           type="button"
           onClick={enableBrowserNotifications}
@@ -231,7 +305,7 @@ const CourseCallInvitationToast = () => {
           Enable browser call alerts
         </button>
       )}
-      {notificationPermission === 'denied' && (
+      {!isNativeAndroid() && notificationPermission === 'denied' && (
         <p style={{ margin: '10px 0 0', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
           Browser notifications are blocked. You can still answer while SkillBridge is open.
         </p>

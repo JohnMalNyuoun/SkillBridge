@@ -31,6 +31,10 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(express.json());
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use('/api/images', require('./routes/images'));
 app.use(requestLogger);
 setupExpressRequestContext(posthog, app);
@@ -39,6 +43,8 @@ setupExpressRequestContext(posthog, app);
 app.use('/api/auth/youth', require('./routes/auth/youthAuth'));
 app.use('/api/auth/org', require('./routes/auth/orgAuth'));
 app.use('/api/auth/google', require('./routes/auth/googleAuth'));
+app.use('/api/auth/session', require('./routes/auth/session'));
+app.use('/api/push-tokens', require('./routes/pushTokens'));
 app.use('/api/auth/verification', require('./routes/auth/verification'));
 app.use('/api/auth/theme', require('./routes/auth/theme'));
 
@@ -110,13 +116,25 @@ if (fs.existsSync(distPath)) {
     immutable: true
   }));
 
-  app.use(express.static(distPath));
+  app.use(express.static(distPath, {
+    setHeaders(res, filePath) {
+      const fileName = path.basename(filePath);
+      if (
+        fileName === 'index.html'
+        || fileName === 'sw.js'
+        || /^workbox-.*\.js$/.test(fileName)
+      ) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+      }
+    }
+  }));
 
   // SPA fallback: any non-API GET returns index.html so React Router handles it.
   // Express 5 dropped wildcard path strings, so we use middleware.
   app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
     if (req.path.startsWith('/api/')) return next();
+    res.setHeader('Cache-Control', 'no-cache, must-revalidate');
     res.sendFile(path.join(distPath, 'index.html'));
   });
 } else {

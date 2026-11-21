@@ -3,6 +3,7 @@ const Organisation = require('../../models/Organisation');
 const { success, error } = require('../../utils/apiResponse');
 const { deleteImage, uploadImage } = require('../../services/mongodbImageService');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
+const { revokeAccountSessions } = require('../../services/authSessionService');
 
 // @desc    Get org profile
 // @route   GET /api/org/profile
@@ -137,6 +138,9 @@ const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     org.password = await bcrypt.hash(newPassword, salt);
     await org.save();
+    await revokeAccountSessions(org._id, 'Organisation', {
+      exceptSessionId: req.user.sid
+    });
 
     return success(res, 200, 'Password changed successfully');
   } catch (err) {

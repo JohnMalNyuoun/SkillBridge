@@ -75,7 +75,11 @@ npm run install:all
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=use_a_long_random_secret
+REFRESH_TOKEN_SECRET=use_a_separate_random_secret_of_at_least_32_characters
 GOOGLE_CLIENT_ID=322610092407-tq94gj5cqhivjud2ajnmj6qg5k6lch10.apps.googleusercontent.com
+# Configure this in Render as the complete service-account JSON secret; never commit it.
+# Optional; must match the service account project when configured.
+FIREBASE_PROJECT_ID=skillbridge-86a30
 
 RESEND_API_KEY=re_your_resend_api_key
 RESEND_FROM_EMAIL=SkillBridge <no-reply@your-verified-domain.com>
@@ -105,6 +109,60 @@ POSTHOG_PROJECT_ID=your_project_id
 POSTHOG_PERSONAL_API_KEY=your_personal_api_key
 
 Profile photos, organisation logos, course covers, and announcement images are stored in MongoDB GridFS. They are served from `/api/images/:id`. Existing image URLs remain unchanged and are not migrated automatically.
+
+## Website updates and Android sessions
+
+The website remains installable as a PWA, but it no longer displays an install or
+manual-update prompt. Its service worker checks for deployments in the background,
+uses the network for page navigations, and waits for existing tabs to close before
+activating a new worker. API responses are marked `no-store` and are not cached by
+the service worker. Refresh the page or open SkillBridge again to load the latest
+website version; an active page is not force-reloaded.
+
+Android login uses short-lived access JWTs in memory and rotating refresh tokens in
+Android Keystore-backed secure storage. Set `REFRESH_TOKEN_SECRET` on Render to a
+separate random value with at least 32 characters. Keep the same value across
+deployments and never commit it. The backend stores only refresh-token hashes in
+the MongoDB `refreshsessions` collection; Mongoose creates the expiry index
+automatically. Refresh sessions expire after 30 days without activity and are
+revoked on Android logout. Website authentication continues using its existing
+session-storage flow.
+
+## Native Android incoming-call notifications
+
+Android incoming-call alerts use Firebase Cloud Messaging data messages and the
+native SkillBridge call notification. The website continues to use its existing
+Socket.IO/browser notification behavior; Firebase Android messaging does not
+provide closed-tab website Web Push.
+
+The Android Firebase app must be registered for package
+`org.skillbridgeafrica.app` in Firebase project `skillbridge-86a30`. Keep the
+existing `frontend/android/app/google-services.json` configuration in the local
+Android project. In Firebase Console, enable Cloud Messaging and create a Firebase
+service account for the backend. Set these Render backend variables:
+
+- `FIREBASE_SERVICE_ACCOUNT_JSON`: the complete service-account JSON, stored as a
+  Render secret. Never add this JSON to the repository, frontend, or Android app.
+- `FIREBASE_PROJECT_ID`: optional project ID (`skillbridge-86a30`); when set, it
+  must match the service account.
+
+Install the Android app built from this repository and grant notification
+permission when prompted after sign-in. Calls continue to use Socket.IO and the
+existing WebRTC screen while SkillBridge is active. Android can deliver FCM
+notifications in the background where platform policy permits; force-stopped apps
+and disabled notifications may not receive or display them. Accept and decline
+actions are verified against the authenticated backend before changing call state.
+
+The Android updater checks the public GitHub Releases page for
+`JohnMalNyuoun/SkillBridge`. Publish each Android release with a numeric version tag
+such as `v1.1.0`, increment both `versionName` and `versionCode` in
+`frontend/android/app/build.gradle`, and attach exactly one release-signed `.apk`.
+Keep the package ID `org.skillbridgeafrica.app` and use the same release signing
+key for every APK update. SkillBridge opens the APK download in the Android
+browser; the user must confirm installation through Android's package installer,
+which verifies the APK signature. The repository currently has no published latest
+release, so the in-app update notice appears only after a newer APK release is
+published.
 
 
 cd Backend

@@ -2,19 +2,20 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    VitePWA({
+export default defineConfig(({ mode }) => {
+  const plugins = [react()]
+
+  if (mode !== 'android') {
+    plugins.push(VitePWA({
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'prompt',
       injectRegister: null,
-      workbox: {
-        navigateFallback: 'index.html',
+      injectManifest: {
         globPatterns: [
           '**/*.{js,css,html,ico,png,svg,webp,jpg,jpeg,avif,gif,woff,woff2,ttf,otf}',
         ],
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/socket\.io(?:\/|$)/],
       },
       manifest: {
         name: 'SkillBridge',
@@ -46,21 +47,24 @@ export default defineConfig({
           },
         ],
       },
-    }),
-  ],
-  server: {
-    port: 5173,
-    proxy: {
-      // Forward all /api requests to the Express backend on port 5000
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-      },
-      '/socket.io': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        ws: true,
+    }))
+  }
+
+  return {
+    plugins,
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+        },
+        '/socket.io': {
+          target: 'http://localhost:5000',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
-  },
+  }
 })

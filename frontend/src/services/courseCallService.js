@@ -20,6 +20,11 @@ export const endCallSession = async (callSessionId) => {
   return response.data;
 };
 
+export const acceptCallSession = async (callSessionId) => {
+  const response = await api.post(`/call-sessions/${callSessionId}/accept`);
+  return response.data;
+};
+
 export const declineCallSession = async (callSessionId) => {
   const response = await api.post(`/call-sessions/${callSessionId}/decline`);
   return response.data;

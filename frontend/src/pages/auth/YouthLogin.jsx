@@ -1,27 +1,43 @@
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { youthGoogleLogin, youthLogin } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
-import { notifyPwaLoginSuccess } from '../../utils/pwaInstallPrompt';
+import { isNativeAndroid } from '../../services/nativeAuthSession';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 
 const YouthLogin = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const {
+    login,
+    user,
+    loading: sessionLoading,
+    sessionNotice,
+    retrySessionRestore
+  } = useAuth();
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isNativeAndroid() || sessionLoading || !user) return;
+    if (user.role === 'admin') {
+      navigate('/admin/dashboard', { replace: true });
+    } else if (['org_admin', 'staff', 'trainee', 'organisation'].includes(user.role)) {
+      navigate('/org/courses', { replace: true });
+    } else {
+      navigate('/home', { replace: true });
+    }
+  }, [navigate, sessionLoading, user]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const completeLogin = (user) => {
-    notifyPwaLoginSuccess(user?._id ?? user?.id);
     if (user.role === 'admin') {
       navigate('/admin/dashboard');
     } else if (['org_admin', 'staff', 'trainee'].includes(user.role)) {
@@ -33,12 +49,13 @@ const YouthLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (sessionLoading) return;
     setError('');
     setLoading(true);
 
     try {
       const res = await youthLogin(form);
-      login(res.data.user, res.data.token);
+      await login(res.data.user, res.data.token, res.data.refreshToken);
       completeLogin(res.data.user);
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
@@ -49,7 +66,7 @@ const YouthLogin = () => {
 
   const handleGoogleCredential = async (idToken) => {
     const res = await youthGoogleLogin(idToken);
-    login(res.data.user, res.data.token);
+    await login(res.data.user, res.data.token, res.data.refreshToken);
     completeLogin(res.data.user);
   };
 
@@ -111,6 +128,26 @@ const YouthLogin = () => {
           </div>
         )}
 
+        {sessionNotice && (
+          <div
+            role="status"
+            style={{
+              background: 'var(--bg-section-alt)',
+              borderLeft: '4px solid var(--fb-blue)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              fontSize: '0.88rem',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            {sessionNotice}{' '}
+            <button type="button" onClick={retrySessionRestore} disabled={sessionLoading}>
+              Try again
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <Input
             label="Email Address"
@@ -134,7 +171,7 @@ const YouthLogin = () => {
           <Button
             type="submit"
             fullWidth
-            loading={loading}
+            loading={loading || sessionLoading}
             style={{ marginTop: '8px' }}
           >
             Sign In
@@ -144,7 +181,7 @@ const YouthLogin = () => {
         <GoogleSignInButton
           onCredential={handleGoogleCredential}
           onError={setError}
-          disabled={loading}
+          disabled={loading || sessionLoading}
         />
 
         <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.88rem' }}>

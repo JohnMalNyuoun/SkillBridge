@@ -3,6 +3,10 @@ const crypto = require('crypto');
 const User = require('../../models/Users');
 const Organisation = require('../../models/Organisation');
 const generateToken = require('../../utils/generateToken');
+const {
+  AuthSessionConfigurationError,
+  issueAuthTokens
+} = require('../../services/authSessionService');
 const { success, error } = require('../../utils/apiResponse');
 const posthog = require('../../config/posthog');
 const {
@@ -93,7 +97,7 @@ const createGoogleAuthHandler = ({
     user.loginCount = (user.loginCount || 0) + 1;
     await user.save();
 
-    const token = createToken(user._id, user.role);
+    const tokens = await issueAuthTokens(user, 'User', req, { createToken });
     analytics.identify({
       distinctId: user._id.toString(),
       properties: {
@@ -110,7 +114,7 @@ const createGoogleAuthHandler = ({
     });
 
     return success(res, 200, 'Login successful', {
-      token,
+      ...tokens,
       user: {
         id: user._id,
         fullName: user.fullName,
@@ -121,6 +125,10 @@ const createGoogleAuthHandler = ({
       }
     });
   } catch (err) {
+    if (err instanceof AuthSessionConfigurationError) {
+      console.error('Refresh session configuration is incomplete:', err.message);
+      return error(res, 503, 'Secure sign-in is temporarily unavailable');
+    }
     if (err && err.code === 11000) {
       return error(res, 409, 'An account already uses this email. Sign in with the linked account.');
     }

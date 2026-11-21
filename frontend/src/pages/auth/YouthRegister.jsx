@@ -9,7 +9,7 @@ import { COMMUNITY_TYPES } from '../../utils/constants';
 
 const YouthRegister = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loading: sessionLoading } = useAuth();
 
   const [form, setForm] = useState({
     fullName: '',
@@ -27,18 +27,19 @@ const YouthRegister = () => {
 
   const handleGoogleCredential = async (idToken) => {
     const response = await youthGoogleLogin(idToken);
-    login(response.data.user, response.data.token);
+    await login(response.data.user, response.data.token, response.data.refreshToken);
     navigate('/home');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (sessionLoading) return;
     setError('');
     setLoading(true);
 
     try {
       const response = await youthRegister(form);
-      login(response.data.user, response.data.token);
+      await login(response.data.user, response.data.token, response.data.refreshToken);
       navigate('/home');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed');
@@ -188,7 +189,7 @@ const YouthRegister = () => {
         <GoogleSignInButton
           onCredential={handleGoogleCredential}
           onError={setError}
-          disabled={loading}
+          disabled={loading || sessionLoading}
         />
 
         <p style={{

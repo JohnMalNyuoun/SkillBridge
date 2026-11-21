@@ -4,6 +4,8 @@ import { getUnreadCount } from '../services/notificationService';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import { SOCKET_URL } from '../utils/constants';
+import { isNativeAndroid } from '../services/nativeAuthSession';
+import { NativeIncomingCall } from '../services/nativeIncomingCall';
 
 export const NotificationContext = createContext();
 
@@ -12,6 +14,7 @@ export const NotificationProvider = ({ children }) => {
 	const [unreadCount, setUnreadCount] = useState(0);
 	const [callInvitation, setCallInvitation] = useState(null);
 	const [groupChatMessageAlert, setGroupChatMessageAlert] = useState(null);
+	const [nativeCallAction, setNativeCallAction] = useState(null);
 
 	const fetchUnreadCount = useCallback(async () => {
 		if (!user) return;
@@ -43,7 +46,9 @@ export const NotificationProvider = ({ children }) => {
 	}, [fetchUnreadCount]);
 
 	useEffect(() => {
-		if (user?.role !== 'youth' || !token) return undefined;
+		if (!['youth', 'organisation', 'org_admin', 'staff', 'trainee'].includes(user?.role) || !token) {
+			return undefined;
+		}
 
 		const socket = io(SOCKET_URL, {
 			auth: { token },
@@ -62,6 +67,11 @@ export const NotificationProvider = ({ children }) => {
 				current?.callSessionId === callSessionId ? null : current
 			));
 		});
+		socket.on('course-call:invitation-cancelled', ({ callSessionId }) => {
+			setCallInvitation((current) => (
+				current?.callSessionId === callSessionId ? null : current
+			));
+		});
 		socket.on('notification:new', () => {
 			void fetchUnreadCount();
 		});
@@ -73,7 +83,88 @@ export const NotificationProvider = ({ children }) => {
 		return () => socket.disconnect();
 	}, [fetchUnreadCount, token, user?.id, user?.role]);
 
+	useEffect(() => {
+		const userId = user?.id;
+		const notificationsEnabled = user?.notificationsEnabled;
+		if (!isNativeAndroid() || !userId || !token) return undefined;
+		let active = true;
+		let actionListener;
+		let tokenListener;
+
+		const registerToken = async (pushToken) => {
+			if (
+				!active
+				|| notificationsEnabled === false
+				|| typeof pushToken !== 'string'
+				|| pushToken.length < 20
+			) return;
+			try {
+				await api.post('/push-tokens', { token: pushToken });
+			} catch (err) {
+				console.warn(
+					'Unable to register Android call notifications:',
+					err.response?.status || err.message
+				);
+			}
+		};
+
+		const consumePendingAction = async () => {
+			try {
+				const result = await NativeIncomingCall.getPendingCallAction();
+				if (active && result?.action && result?.callSessionId) {
+					setNativeCallAction({ ...result, recipientUserId: userId });
+					return true;
+				}
+			} catch (err) {
+				console.warn('Unable to read a pending Android call action:', err.message);
+			}
+			return false;
+		};
+
+		const initializePush = async () => {
+			try {
+				actionListener = await NativeIncomingCall.addListener(
+					'callActionAvailable',
+					() => { void consumePendingAction(); }
+				);
+				if (!active) {
+					actionListener.remove();
+					return;
+				}
+				tokenListener = await NativeIncomingCall.addListener(
+					'tokenRefresh',
+					({ token: pushToken }) => { void registerToken(pushToken); }
+				);
+				if (!active) {
+					tokenListener.remove();
+					return;
+				}
+				const hasPendingAction = await consumePendingAction();
+				if (hasPendingAction) return;
+				if (!active || notificationsEnabled === false) return;
+
+				const permission = await NativeIncomingCall.requestNotificationPermission();
+				if (!active || permission?.granted !== true) return;
+				const result = await NativeIncomingCall.getToken();
+				await registerToken(result?.token);
+			} catch (err) {
+				console.warn(
+					'Android call notifications are unavailable:',
+					err.message
+				);
+			}
+		};
+
+		void initializePush();
+		return () => {
+			active = false;
+			actionListener?.remove();
+			tokenListener?.remove();
+		};
+	}, [token, user?.id, user?.notificationsEnabled]);
+
 	const clearCallInvitation = useCallback(() => setCallInvitation(null), []);
+	const clearNativeCallAction = useCallback(() => setNativeCallAction(null), []);
 	const resetUnreadCount = () => setUnreadCount(0);
 	const clearGroupChatMessageAlert = () => setGroupChatMessageAlert(null);
 
@@ -87,6 +178,10 @@ export const NotificationProvider = ({ children }) => {
 					? callInvitation
 					: null,
 				clearCallInvitation,
+				nativeCallAction: nativeCallAction?.recipientUserId === user?.id
+					? nativeCallAction
+					: null,
+				clearNativeCallAction,
 				groupChatMessageAlert: groupChatMessageAlert?.recipientUserId === user?.id
 					? groupChatMessageAlert
 					: null,

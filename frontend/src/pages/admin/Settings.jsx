@@ -168,10 +168,17 @@ const AdminSettings = () => {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     const confirmed = window.confirm('Do you want to log out?');
     if (!confirmed) return;
-    logout();
+    const result = await logout();
+    if (!result.serverRevoked) {
+      window.alert(!result.localSessionCleared
+        ? 'Secure storage could not be cleared. Connect to the internet, reopen SkillBridge, and try signing out again. Contact support if the issue continues.'
+        : result.revocationQueued
+          ? 'You are signed out on this device. Server revocation is queued until a connection is available.'
+          : 'You are signed out locally, but server revocation could not be confirmed or queued. Connect to the internet and contact support if immediate revocation is needed.');
+    }
     navigate('/login');
   };
 

@@ -5,6 +5,9 @@ const Organisation = require('../models/Organisation');
 const User = require('../models/Users');
 
 const idString = (id) => id?.toString();
+const accountModelForActor = (actor) => (
+  actor.role === 'organisation' ? 'Organisation' : 'User'
+);
 
 const loadCallActor = async (identity) => {
   if (!identity?.id) return null;
@@ -108,9 +111,28 @@ const findAccessibleCall = async (callSessionId, actor) => {
   return { session, ...context };
 };
 
+const canJoinCallSession = (session, actor) => {
+  const invitations = session?.invitations || [];
+  if (invitations.length === 0) return true;
+
+  if (
+    idString(session.startedBy) === idString(actor.id)
+    && session.startedByModel === accountModelForActor(actor)
+  ) {
+    return true;
+  }
+
+  const invitation = invitations.find((item) => (
+    idString(item.recipient) === idString(actor.id)
+    && item.recipientModel === accountModelForActor(actor)
+  ));
+  return invitation?.status === 'accepted';
+};
+
 module.exports = {
   idString,
   loadCallActor,
   getCourseCallContext,
-  findAccessibleCall
+  findAccessibleCall,
+  canJoinCallSession
 };

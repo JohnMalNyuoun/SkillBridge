@@ -5,6 +5,7 @@ const { success, error } = require('../../utils/apiResponse');
 const { deleteImage, uploadImage } = require('../../services/mongodbImageService');
 const { sendEmail, hasEmailConfig } = require('../../services/emailService');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
+const { revokeAccountSessions } = require('../../services/authSessionService');
 const NAME_CHANGE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 // @desc    Get youth profile
@@ -238,6 +239,9 @@ const changePassword = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(newPassword, salt);
     await user.save();
+    await revokeAccountSessions(user._id, 'User', {
+      exceptSessionId: req.user.sid
+    });
 
     return success(res, 200, 'Password changed successfully');
   } catch (err) {

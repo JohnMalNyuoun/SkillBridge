@@ -226,6 +226,20 @@ test('enrolled students can join a call room and exchange WebRTC signals', async
     assert.equal(joinedBroadcast.payload.hasVideo, true);
     assert.equal(participant.emittedSignal.event, 'course-call:signal');
     assert.equal(participant.emittedSignal.signal.description.sdp, 'example-sdp');
+
+    session.invitations = [{
+      recipient: studentId,
+      recipientModel: 'User',
+      status: 'pending'
+    }];
+    let pendingInvitationJoin;
+    await socketEvents['course-call:join']({
+      callSessionId: callId,
+      hasVideo: true
+    }, (result) => {
+      pendingInvitationJoin = result;
+    });
+    assert.equal(pendingInvitationJoin.error, 'Accept the call invitation before joining.');
   } finally {
     CallSession.findById = originalCallFindById;
     Course.findById = originalCourseFindById;

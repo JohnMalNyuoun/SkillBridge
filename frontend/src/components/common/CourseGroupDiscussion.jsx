@@ -14,8 +14,8 @@ import {
 } from '../../services/courseService';
 import { SOCKET_URL } from '../../utils/constants';
 import {
+  acceptCallSession,
   getActiveCourseCall,
-  getCallSession,
   startCourseCall
 } from '../../services/courseCallService';
 import { resolveImageUrl } from '../../utils/imageUrl';
@@ -59,7 +59,7 @@ const CallTypePicker = ({ onStart, onClose, starting }) => (
         Choose a call type
       </h2>
       <p style={{ color: 'var(--text-secondary)', margin: '8px 0 18px' }}>
-        Enrolled students will be invited to join. You can turn your camera on or off during the call.
+        Eligible course participants will be invited to join. You can turn your camera on or off during the call.
       </p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
         <button type="button" onClick={() => onStart('audio')} disabled={starting}>
@@ -376,10 +376,11 @@ const CourseGroupDiscussion = ({
     setError('');
     try {
       const response = await startCourseCall(courseId, callType);
-      setActiveCall(response.data.callSession);
+      const accepted = await acceptCallSession(response.data.callSession._id);
+      setActiveCall(accepted.data.callSession);
       setCallTypePickerOpen(false);
-      navigate(`/calls/${response.data.callSession._id}`, {
-        state: { initialMode: callType }
+      navigate(`/calls/${accepted.data.callSession._id}`, {
+        state: { initialMode: accepted.data.callSession.callType || callType }
       });
     } catch (err) {
       setError(err.response?.data?.message || 'Unable to start a course call.');
@@ -393,13 +394,10 @@ const CourseGroupDiscussion = ({
     setJoiningCallId(callSessionId);
     setCallStatusError('');
     try {
-      const response = await getCallSession(callSessionId);
-      if (response.data.callSession.status === 'ongoing') {
-        navigate(`/calls/${callSessionId}`);
-      } else {
-        setActiveCall(null);
-        setCallStatusError('This call has ended.');
-      }
+      const response = await acceptCallSession(callSessionId);
+      navigate(`/calls/${response.data.callSession._id}`, {
+        state: { initialMode: response.data.callSession.callType }
+      });
     } catch (err) {
       setCallStatusError(err.response?.data?.message || 'Unable to join this call.');
     } finally {

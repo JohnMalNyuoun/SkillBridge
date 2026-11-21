@@ -42,6 +42,37 @@ const callSessionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }],
+  invitations: [{
+    recipient: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      refPath: 'invitations.recipientModel'
+    },
+    recipientModel: {
+      type: String,
+      enum: ['User', 'Organisation'],
+      required: true
+    },
+    notificationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Notification',
+      required: true
+    },
+    status: {
+      type: String,
+      enum: ['pending', 'accepted', 'declined', 'expired', 'cancelled'],
+      default: 'pending',
+      required: true
+    },
+    expiresAt: {
+      type: Date,
+      required: true
+    },
+    respondedAt: Date
+  }],
+  invitationExpiresAt: {
+    type: Date
+  },
   declinedBy: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'

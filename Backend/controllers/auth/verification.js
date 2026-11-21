@@ -1,7 +1,11 @@
 const bcrypt = require('bcryptjs');
 const User = require('../../models/Users');
 const Organisation = require('../../models/Organisation');
-const generateToken = require('../../utils/generateToken');
+const {
+  AuthSessionConfigurationError,
+  issueAuthTokens,
+  revokeAccountSessions
+} = require('../../services/authSessionService');
 const { success, error } = require('../../utils/apiResponse');
 const { sendCode, verifyCode } = require('../../services/verificationCodeService');
 
@@ -32,9 +36,9 @@ const verifyRegistrationEmail = async (req, res) => {
     await account.save();
 
     if (accountType === 'youth') {
-      const token = generateToken(account._id, account.role);
+      const tokens = await issueAuthTokens(account, 'User', req);
       return success(res, 200, 'Email verified successfully', {
-        token,
+        ...tokens,
         user: {
           id: account._id,
           fullName: account.fullName,
@@ -57,6 +61,10 @@ const verifyRegistrationEmail = async (req, res) => {
       }
     });
   } catch (err) {
+    if (err instanceof AuthSessionConfigurationError) {
+      console.error('Refresh session configuration is incomplete:', err.message);
+      return error(res, 503, 'Secure sign-in is temporarily unavailable');
+    }
     return error(res, 500, err.message);
   }
 };
@@ -115,6 +123,10 @@ const resetPassword = async (req, res) => {
 
     account.password = await bcrypt.hash(newPassword, await bcrypt.genSalt(10));
     await account.save();
+    await revokeAccountSessions(
+      account._id,
+      accountType === 'youth' ? 'User' : 'Organisation'
+    );
     return success(res, 200, 'Password reset successfully. You can now sign in.');
   } catch (err) {
     return error(res, 500, err.message);

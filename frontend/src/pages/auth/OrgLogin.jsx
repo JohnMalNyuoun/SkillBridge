@@ -1,18 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { orgLogin } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
-import { notifyPwaLoginSuccess } from '../../utils/pwaInstallPrompt';
+import { isNativeAndroid } from '../../services/nativeAuthSession';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
 
 const OrgLogin = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const {
+    login,
+    user,
+    loading: sessionLoading,
+    sessionNotice,
+    retrySessionRestore
+  } = useAuth();
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isNativeAndroid() || sessionLoading || !user) return;
+    if (['organisation', 'org_admin', 'staff', 'trainee'].includes(user.role)) {
+      navigate('/org/dashboard', { replace: true });
+    } else {
+      navigate('/home', { replace: true });
+    }
+  }, [navigate, sessionLoading, user]);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -20,13 +35,13 @@ const OrgLogin = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (sessionLoading) return;
     setError('');
     setLoading(true);
 
     try {
       const res = await orgLogin(form);
-      login(res.data.organisation, res.data.token);
-      notifyPwaLoginSuccess(res.data.organisation?._id ?? res.data.organisation?.id);
+      await login(res.data.organisation, res.data.token, res.data.refreshToken);
       navigate('/org/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
@@ -105,6 +120,26 @@ const OrgLogin = () => {
           </div>
         )}
 
+        {sessionNotice && (
+          <div
+            role="status"
+            style={{
+              background: 'var(--bg-section-alt)',
+              borderLeft: '4px solid var(--fb-blue)',
+              borderRadius: '8px',
+              padding: '12px 16px',
+              marginBottom: '16px',
+              fontSize: '0.88rem',
+              color: 'var(--text-secondary)'
+            }}
+          >
+            {sessionNotice}{' '}
+            <button type="button" onClick={retrySessionRestore} disabled={sessionLoading}>
+              Try again
+            </button>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
           <Input
             label="Email Address"
@@ -128,7 +163,7 @@ const OrgLogin = () => {
           <Button
             type="submit"
             fullWidth
-            loading={loading}
+            loading={loading || sessionLoading}
             style={{ marginTop: '8px' }}
           >
             Sign In

@@ -1,6 +1,9 @@
 const bcrypt = require('bcryptjs');
 const User = require('../../models/Users');
-const generateToken = require('../../utils/generateToken');
+const {
+  AuthSessionConfigurationError,
+  issueAuthTokens
+} = require('../../services/authSessionService');
 const { success, error } = require('../../utils/apiResponse');
 const posthog = require('../../config/posthog');
 
@@ -66,9 +69,9 @@ const registerYouth = async (req, res) => {
       }
     });
 
-    const token = generateToken(user._id, user.role);
+    const tokens = await issueAuthTokens(user, 'User', req);
     return success(res, 201, 'Account created successfully.', {
-      token,
+      ...tokens,
       user: {
         id: user._id,
         fullName: user.fullName,
@@ -80,6 +83,10 @@ const registerYouth = async (req, res) => {
     });
 
   } catch (err) {
+    if (err instanceof AuthSessionConfigurationError) {
+      console.error('Refresh session configuration is incomplete:', err.message);
+      return error(res, 503, 'Secure sign-in is temporarily unavailable');
+    }
     return error(res, 500, err.message);
   }
 };
@@ -122,7 +129,7 @@ const loginYouth = async (req, res) => {
     await user.save();
 
     // Generate token
-    const token = generateToken(user._id, user.role);
+    const tokens = await issueAuthTokens(user, 'User', req);
 
     posthog.identify({
       distinctId: user._id.toString(),
@@ -142,7 +149,7 @@ const loginYouth = async (req, res) => {
     });
 
     return success(res, 200, 'Login successful', {
-      token,
+      ...tokens,
       user: {
         id: user._id,
         fullName: user.fullName,
@@ -154,6 +161,10 @@ const loginYouth = async (req, res) => {
     });
 
   } catch (err) {
+    if (err instanceof AuthSessionConfigurationError) {
+      console.error('Refresh session configuration is incomplete:', err.message);
+      return error(res, 503, 'Secure sign-in is temporarily unavailable');
+    }
     return error(res, 500, err.message);
   }
 };
