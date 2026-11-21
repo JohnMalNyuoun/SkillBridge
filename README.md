@@ -112,12 +112,13 @@ Profile photos, organisation logos, course covers, and announcement images are s
 
 ## Website updates and Android sessions
 
-The website remains installable as a PWA, but it no longer displays an install or
-manual-update prompt. Its service worker checks for deployments in the background,
-uses the network for page navigations, and waits for existing tabs to close before
-activating a new worker. API responses are marked `no-store` and are not cached by
-the service worker. Refresh the page or open SkillBridge again to load the latest
-website version; an active page is not force-reloaded.
+The website remains installable as a PWA, but it does not display an install or
+manual-update prompt. Its service worker checks for deployments in the background
+and activates a waiting update only after the open page has loaded a bundle from
+that deployment and is the only SkillBridge window. It does not reload the page;
+the new version loads on the next reload or visit. Old tabs defer activation so
+their cached assets remain available. API responses are marked `no-store` and are
+not cached by the service worker.
 
 Android login uses short-lived access JWTs in memory and rotating refresh tokens in
 Android Keystore-backed secure storage. Set `REFRESH_TOKEN_SECRET` on Render to a

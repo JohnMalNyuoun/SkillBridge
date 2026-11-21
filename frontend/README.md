@@ -17,11 +17,12 @@ Render backend; this file contains a public service URL, not a credential. The w
 build continues to use its existing deployment environment.
 
 The website build retains the PWA manifest and service worker. It does not show
-install or update prompts; page navigation uses the latest server HTML, while the
-service worker keeps the current page running until it can safely activate an
-update. The Android build omits the PWA worker and checks GitHub Releases for a
-newer APK instead. Each public release must have a numeric version tag and exactly
-one APK signed with the same key as the installed app.
+install or update prompts; the worker activates a waiting deployment only when the
+open page is already running that deployment's bundle and no other SkillBridge
+window is open. It does not reload the page, so the new version loads on the next
+reload or visit. The Android build omits the PWA worker and checks GitHub Releases
+for a newer APK instead. Each public release must have a numeric version tag and
+exactly one APK signed with the same key as the installed app.
 
 Android refresh tokens are stored with `@aparajita/capacitor-secure-storage` using
 Android Keystore-backed encryption. Configure the backend `REFRESH_TOKEN_SECRET`

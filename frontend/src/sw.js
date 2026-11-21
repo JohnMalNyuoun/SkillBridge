@@ -3,6 +3,10 @@ import {
   matchPrecache,
   precache
 } from 'workbox-precaching';
+import {
+  isBuildBundlePrecached,
+  isOnlyWindowClient
+} from './pwaUpdatePolicy.js';
 
 const RUNTIME_ASSET_CACHE = 'skillbridge-runtime-assets-v1';
 const precacheEntries = self.__WB_MANIFEST;
@@ -48,6 +52,29 @@ self.addEventListener('fetch', (event) => {
     }
 
     return fetch(request);
+  })());
+});
+
+self.addEventListener('message', (event) => {
+  if (
+    event.data?.type !== 'ACTIVATE_IF_SAFE'
+    || !event.source?.id
+    || !isBuildBundlePrecached(
+      event.data.bundlePath,
+      precacheEntries,
+      self.location.href
+    )
+  ) {
+    return;
+  }
+
+  event.waitUntil((async () => {
+    const windowClients = await self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    });
+    if (!isOnlyWindowClient(windowClients, event.source.id)) return;
+    await self.skipWaiting();
   })());
 });
 

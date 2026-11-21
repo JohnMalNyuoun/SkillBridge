@@ -192,6 +192,9 @@ test.describe("public app", () => {
     const workerResponse = await page.request.get("/sw.js");
     expect(workerResponse.ok()).toBeTruthy();
     expect(workerResponse.headers()["content-type"]).not.toContain("text/html");
+    const workerSource = await workerResponse.text();
+    expect(workerSource).toContain("ACTIVATE_IF_SAFE");
+    expect(workerSource).toContain("skipWaiting");
     await expect.poll(async () => page.evaluate(async () => (
       (await navigator.serviceWorker.getRegistrations()).length
     ))).toBeGreaterThan(0);

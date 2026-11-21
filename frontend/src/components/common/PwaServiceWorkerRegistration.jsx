@@ -13,12 +13,38 @@ const PwaServiceWorkerRegistration = () => {
 
     let registration;
     let active = true;
+    const getCurrentBundlePath = () => {
+      const appScript = document.querySelector('script[type="module"][src]');
+      if (!appScript) return null;
+
+      const bundlePath = new URL(appScript.src, window.location.href).pathname;
+      return bundlePath.startsWith('/assets/') ? bundlePath : null;
+    };
+    const requestSafeActivation = () => {
+      const bundlePath = getCurrentBundlePath();
+      if (!active || !registration?.waiting || !bundlePath) return;
+
+      registration.waiting.postMessage({
+        type: 'ACTIVATE_IF_SAFE',
+        bundlePath
+      });
+    };
+    const watchInstallingWorker = () => {
+      const installingWorker = registration?.installing;
+      if (!installingWorker) return;
+
+      installingWorker.addEventListener('statechange', () => {
+        if (installingWorker.state === 'installed') requestSafeActivation();
+      });
+    };
     const checkForUpdates = () => {
-      if (registration) {
-        registration.update().catch((error) => {
+      if (!registration) return;
+      requestSafeActivation();
+      registration.update()
+        .then(requestSafeActivation)
+        .catch((error) => {
           console.error('Unable to check for website updates:', error);
         });
-      }
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') checkForUpdates();
@@ -31,6 +57,9 @@ const PwaServiceWorkerRegistration = () => {
       .then((serviceWorkerRegistration) => {
         if (!active) return;
         registration = serviceWorkerRegistration;
+        registration.addEventListener('updatefound', watchInstallingWorker);
+        watchInstallingWorker();
+        requestSafeActivation();
         checkForUpdates();
       })
       .catch((error) => {
@@ -48,6 +77,7 @@ const PwaServiceWorkerRegistration = () => {
       window.removeEventListener('focus', checkForUpdates);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', checkForUpdates);
+      registration?.removeEventListener('updatefound', watchInstallingWorker);
     };
   }, []);
 
