@@ -22,6 +22,7 @@ const { setupExpressRequestContext, setupExpressErrorHandler } = require('postho
 connectDB();
 
 const app = express();
+app.set('trust proxy', 1);
 const allowedOrigins = getAllowedOrigins();
 
 app.use(cors({
@@ -37,6 +38,7 @@ setupExpressRequestContext(posthog, app);
 // Auth routes
 app.use('/api/auth/youth', require('./routes/auth/youthAuth'));
 app.use('/api/auth/org', require('./routes/auth/orgAuth'));
+app.use('/api/auth/google', require('./routes/auth/googleAuth'));
 app.use('/api/auth/verification', require('./routes/auth/verification'));
 app.use('/api/auth/theme', require('./routes/auth/theme'));
 

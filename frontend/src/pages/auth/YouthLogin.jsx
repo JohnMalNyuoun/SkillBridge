@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { youthLogin } from '../../services/authService';
+import { youthGoogleLogin, youthLogin } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
 import { notifyPwaLoginSuccess } from '../../utils/pwaInstallPrompt';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 
 const YouthLogin = () => {
   const navigate = useNavigate();
@@ -19,6 +20,17 @@ const YouthLogin = () => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
+  const completeLogin = (user) => {
+    notifyPwaLoginSuccess(user?._id ?? user?.id);
+    if (user.role === 'admin') {
+      navigate('/admin/dashboard');
+    } else if (['org_admin', 'staff', 'trainee'].includes(user.role)) {
+      navigate('/org/courses');
+    } else {
+      navigate('/home');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -27,19 +39,18 @@ const YouthLogin = () => {
     try {
       const res = await youthLogin(form);
       login(res.data.user, res.data.token);
-      notifyPwaLoginSuccess(res.data.user?._id ?? res.data.user?.id);
-      if (res.data.user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else if (['org_admin', 'staff', 'trainee'].includes(res.data.user.role)) {
-        navigate('/org/courses');
-      } else {
-        navigate('/home');
-      }
+      completeLogin(res.data.user);
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleCredential = async (idToken) => {
+    const res = await youthGoogleLogin(idToken);
+    login(res.data.user, res.data.token);
+    completeLogin(res.data.user);
   };
 
   return (
@@ -129,6 +140,12 @@ const YouthLogin = () => {
             Sign In
           </Button>
         </form>
+
+        <GoogleSignInButton
+          onCredential={handleGoogleCredential}
+          onError={setError}
+          disabled={loading}
+        />
 
         <p style={{ textAlign: 'center', marginTop: '12px', fontSize: '0.88rem' }}>
           <Link to="/forgot-password" style={{ color: 'var(--fb-blue)', fontWeight: 700 }}>

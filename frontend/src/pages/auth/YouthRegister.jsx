@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { youthRegister } from '../../services/authService';
+import { youthGoogleLogin, youthRegister } from '../../services/authService';
 import useAuth from '../../hooks/useAuth';
 import Input from '../../components/common/Input';
 import Button from '../../components/common/Button';
+import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import { COMMUNITY_TYPES } from '../../utils/constants';
 
 const YouthRegister = () => {
@@ -22,6 +23,12 @@ const YouthRegister = () => {
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleGoogleCredential = async (idToken) => {
+    const response = await youthGoogleLogin(idToken);
+    login(response.data.user, response.data.token);
+    navigate('/home');
   };
 
   const handleSubmit = async (e) => {
@@ -177,6 +184,12 @@ const YouthRegister = () => {
             Create Account
           </Button>
         </form>
+
+        <GoogleSignInButton
+          onCredential={handleGoogleCredential}
+          onError={setError}
+          disabled={loading}
+        />
 
         <p style={{
           textAlign: 'center',

@@ -10,6 +10,11 @@ export const youthLogin = async (data) => {
   return response.data;
 };
 
+export const youthGoogleLogin = async (idToken) => {
+  const response = await api.post('/auth/google', { idToken });
+  return response.data;
+};
+
 export const orgRegister = async (data) => {
   const response = await api.post('/auth/org/register', data);
   return response.data;

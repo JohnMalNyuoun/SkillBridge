@@ -75,6 +75,7 @@ npm run install:all
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=use_a_long_random_secret
+GOOGLE_CLIENT_ID=322610092407-tq94gj5cqhivjud2ajnmj6qg5k6lch10.apps.googleusercontent.com
 
 RESEND_API_KEY=re_your_resend_api_key
 RESEND_FROM_EMAIL=SkillBridge <no-reply@your-verified-domain.com>
@@ -83,6 +84,20 @@ FRONTEND_URL=https://skillbridge-tu5k.onrender.com
 CORS_ALLOWED_ORIGINS=https://your-project.vercel.app,https://preview.example.com
 
 Verify your sending domain with Resend, then configure `RESEND_API_KEY` and `RESEND_FROM_EMAIL` in the Render service environment. The sender must use that verified domain.
+
+## Google sign-in configuration
+
+Set `VITE_GOOGLE_CLIENT_ID` to the website OAuth Client ID in the frontend build environment (including the Render service and Vercel, if used), and in a local `frontend/.env` file when developing the website. `frontend/.env.example` shows the required value. The Android asset build reads the same setting from `frontend/.env.android`:
+
+```env
+VITE_GOOGLE_CLIENT_ID=322610092407-tq94gj5cqhivjud2ajnmj6qg5k6lch10.apps.googleusercontent.com
+```
+
+Set `GOOGLE_CLIENT_ID` to the same website OAuth Client ID in the Render backend environment. The API verifies that ID token audience for both website and Android requests. These client IDs are public identifiers; never put OAuth client secrets or private keys in frontend code.
+
+In Google Cloud, configure the OAuth consent screen and add `https://skillbridge-tu5k.onrender.com` and the local development origin `http://localhost:5173` to the website OAuth client's authorized JavaScript origins. Create/confirm the Android OAuth client for package `org.skillbridgeafrica.app` and register the debug signing SHA-1 `CB:F0:A4:68:67:C5:97:61:D6:0F:23:F3:92:61:B4:7A:C6:8E:85:66` and the release signing SHA-1 used to publish the app. Keep the Android OAuth client ID out of frontend source; Android Credential Manager requests the website OAuth client ID as its server client ID.
+
+The Android implementation uses Credential Manager and Google's Sign in with Google flow. Rebuild/sync the native project after updating the Android signing configuration or native dependencies.
 
 POSTHOG_API_KEY=your_posthog_key
 POSTHOG_HOST=https://us.i.posthog.com
